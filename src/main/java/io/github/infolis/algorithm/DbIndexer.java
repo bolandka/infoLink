@@ -91,10 +91,10 @@ public class DbIndexer extends BaseAlgorithm {
 		private String gws_toID;
 		private String gws_link;
 
-		private Map<String, String> getDataUrls() {
+		private Map<String, String> getDataUrls(String filename) {
 			Map<String, String> data_urls = new HashMap<>();
 			try {
-				String content = FileUtils.readFileToString(new File("/infolis-files/data-urls.csv"));
+				String content = FileUtils.readFileToString(new File(filename));
 				for (String line : content.trim().split("\n")) {
 					String[] keyValue = line.split(";");
 					data_urls.put(keyValue[0].trim(), keyValue[1].trim());
@@ -105,8 +105,7 @@ public class DbIndexer extends BaseAlgorithm {
 			return data_urls;
 		}
 
-		protected String getGwsLink(String citedData) {
-			Map<String, String> data_urls = getDataUrls();
+		private String getUrlForCitedData(String citedData, Map<String, String> data_urls) 		{
 			String dataLink = data_urls.get(citedData);
 			if (null != dataLink) {
 				log.debug("FOUND DATA LINK FOR " + citedData + ": " + dataLink);
@@ -115,6 +114,16 @@ public class DbIndexer extends BaseAlgorithm {
 				log.debug("NO DATA LINK FOR " + citedData);
 				return null;
 			}
+		}
+
+		public String getGwsLink(String citedData, String urlFilename) {
+			Map<String, String> data_urls = getDataUrls(urlFilename);
+			return getUrlForCitedData(citedData, data_urls);
+		}
+
+		protected String getGwsLink(String citedData) {
+			Map<String, String> data_urls = getDataUrls("/infolis-files/data-urls.csv");
+			return getUrlForCitedData(citedData, data_urls);
 		}
 
 		public ElasticLink() {}
