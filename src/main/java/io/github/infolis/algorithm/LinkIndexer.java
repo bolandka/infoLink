@@ -44,10 +44,8 @@ import io.github.infolis.model.entity.Entity;
 import io.github.infolis.model.entity.EntityLink;
 import io.github.infolis.model.entity.EntityLink.EntityRelation;
 import io.github.infolis.util.SerializationUtils;
-import io.github.infolis.algorithm.DbIndexer;
-import io.github.infolis.algorithm.DbIndexer.ElasticLink;
 
-public class LinkIndexer extends BaseAlgorithm {
+public class LinkIndexer extends ElasticIndexer {
 
 	private static final Logger log = LoggerFactory.getLogger(LinkIndexer.class);
 	
@@ -442,7 +440,7 @@ public class LinkIndexer extends BaseAlgorithm {
 		return flattenedLinks;
 	}
 	
-	private void put(HttpClient httpclient, HttpPut httpput, StringEntity data) throws ClientProtocolException, IOException {
+	/*private void put(HttpClient httpclient, HttpPut httpput, StringEntity data) throws ClientProtocolException, IOException {
 		httpput.setEntity(data);
 		//httpput.setHeader("content-type", "application/json;charset=UTF-8");
 		httpput.setHeader("content-type", ContentType.APPLICATION_JSON.toString());
@@ -480,9 +478,9 @@ public class LinkIndexer extends BaseAlgorithm {
 		        instream.close();
 		    }
 		}
-	}
+	}*/
 	
-	private void pushToIndex(List<EntityLink> flattenedLinks, String index) throws ClientProtocolException, IOException {
+	void pushToIndex(String index, List<EntityLink> flattenedLinks) throws ClientProtocolException, IOException {
 		Set<Entity> entities = new HashSet<>();	
 		String prefixRegex = "http://.*/entity/";
 		Pattern prefixPattern = Pattern.compile(prefixRegex);
@@ -513,7 +511,8 @@ public class LinkIndexer extends BaseAlgorithm {
 			}
 
 			for (String pubId : fromEntity.getIdentifiers())  {
-				if (pubId.startsWith("urn:")) {
+				if (null == pubId) continue;
+				else if (pubId.startsWith("urn:")) {
 					fromEntity.setGwsId(pubId);
 					break;
 				}
@@ -539,11 +538,20 @@ public class LinkIndexer extends BaseAlgorithm {
 			if (null != toEntity.getGwsId()) toEntity.setUri(toEntity.getGwsId());
 			else toEntity.setUri(toEntity.getUri().replaceAll("http.*/entity/","literaturpool-"));
 
+			// TODO dedup entities:
+			// check if similar entity is in temp data store (or other data store?)
+			// if so, merge entities and merge links
+			// for this, set up ingoingLinks and outgoingLinks maps
+			//   containing entities as keys and in-/outgoing links as values
+			// in those links, replace ID of entity with new merged ID
+
 			link.setFromEntity(fromEntity.getUri());
 			link.setToEntity(toEntity.getUri());
 
-			DbIndexer indexer = new DbIndexer(getInputDataStoreClient(), getOutputDataStoreClient(), getInputFileResolver(), getOutputFileResolver());
-			ElasticLink elink = indexer.new ElasticLink(link);
+			//DbIndexer indexer = new DbIndexer(getInputDataStoreClient(), getOutputDataStoreClient(), getInputFileResolver(), getOutputFileResolver());
+			//don't push link to index if its entities have too little metadata
+			if (!showInGws(fromEntity, toEntity)) continue;
+			ElasticLink elink = new ElasticLink(link);
 			//elink.setGws_fromID(elink.getFromEntity());
 			//elink.setGws_toID(elink.getToEntity());
 			elink.setGws_fromView(fromEntity.getEntityView());
@@ -590,13 +598,20 @@ public class LinkIndexer extends BaseAlgorithm {
 		//query.put("provenance", "");
 		for (EntityLink link : getInputDataStoreClient().search(EntityLink.class, query)) {
 			//hack for current infolislinks
-			if (null == link.getProvenance() && !link.getTags().contains("infolis-ontology")) links.add(link.getUri());
-			//if (!link.getTags().contains("infolis-ontology")) links.add(link.getUri());
+			//if (null == link.getProvenance() && !link.getTags().contains("infolis-ontology")) links.add(link.getUri());
+			if (!link.getTags().contains("infolis-ontology")) links.add(link.getUri());
 		}
 		return links;
 	}
-	
 
+	List<EntityLink> getLinksToPush() {
+		List<EntityLink> links = new ArrayList<>();
+		return links;
+	}
+
+	
+	// TODO integrate ignoreLinksWithProvenance method...
+	// TODO use ElasticIndexer's methods...
 	@Override
 	public void execute() throws IOException {
 		//either use specified set of links or use on all links in the database
@@ -604,14 +619,7 @@ public class LinkIndexer extends BaseAlgorithm {
 			debug(log, "list of input links is empty, indexing all links in the database");
 			getExecution().setLinks(getAllLinksInDatabase());
 		}
-		pushToIndex(flattenLinks(getInputDataStoreClient().get(EntityLink.class, getExecution().getLinks())), getExecution().getIndexDirectory());
+		pushToIndex(getExecution().getIndexDirectory(), flattenLinks(getInputDataStoreClient().get(EntityLink.class, getExecution().getLinks())));
 		
 	}
-
-	@Override
-	public void validate() throws IllegalAlgorithmArgumentException {
-		// TODO Auto-generated method stub
-		
-	}
-	
 }
