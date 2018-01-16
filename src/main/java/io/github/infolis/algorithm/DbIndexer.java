@@ -1,23 +1,12 @@
 package io.github.infolis.algorithm;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.File;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
-import java.util.HashMap;
-import java.util.Set;
 
-import org.apache.commons.io.IOUtils;
-import org.apache.commons.io.FileUtils;
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpResponse;
 import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.entity.ContentType;
@@ -25,16 +14,12 @@ import org.apache.http.impl.client.HttpClients;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.collect.ArrayListMultimap;
-import com.google.common.collect.Multimap;
-
 import io.github.infolis.InfolisConfig;
 import io.github.infolis.datastore.DataStoreClient;
 import io.github.infolis.datastore.FileResolver;
 import io.github.infolis.model.entity.Entity;
 import io.github.infolis.model.EntityType;
 import io.github.infolis.model.entity.EntityLink;
-import io.github.infolis.model.TextualReference;
 import io.github.infolis.util.SerializationUtils;
 
 public class DbIndexer extends ElasticIndexer {

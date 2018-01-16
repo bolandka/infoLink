@@ -1,14 +1,11 @@
 package io.github.infolis.algorithm;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.regex.Pattern;
-import java.util.regex.Matcher;
 import java.util.StringJoiner;
 
 import java.io.StringReader;
@@ -19,9 +16,6 @@ import javax.json.JsonObject;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.HashMultimap;
 
-import org.apache.commons.io.IOUtils;
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpResponse;
 import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpPost;
@@ -33,13 +27,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.ArrayListMultimap;
-import com.google.common.collect.Multimap;
 
 import io.github.infolis.InfolisConfig;
 import io.github.infolis.datastore.DataStoreClient;
 import io.github.infolis.datastore.FileResolver;
 import io.github.infolis.model.EntityType;
-import io.github.infolis.model.TextualReference;
 import io.github.infolis.model.entity.Entity;
 import io.github.infolis.model.entity.EntityLink;
 import io.github.infolis.model.entity.EntityLink.EntityRelation;
@@ -104,7 +96,7 @@ public class LinkIndexer extends ElasticIndexer {
 		HttpPost httppost = new HttpPost(dataSearchIndex);
 		String answer = null;
 		try {
-			answer = importer_post(httpclient, httppost, new StringEntity(query, ContentType.APPLICATION_JSON));
+			answer = post(httpclient, httppost, new StringEntity(query, ContentType.APPLICATION_JSON));
 		} catch (IOException e) { log.error(e.toString()); }
 		if (null == answer) return null;
 
@@ -177,33 +169,11 @@ public class LinkIndexer extends ElasticIndexer {
 		return getUniqueEntity(toSearch);
 	}
 
-
-	private String importer_post(HttpClient httpclient, HttpPost httppost, StringEntity data) throws ClientProtocolException, IOException {
-                httppost.setEntity(data);
-                httppost.setHeader("content-type", ContentType.APPLICATION_JSON.toString());
-                httppost.setHeader("Accept", ContentType.APPLICATION_JSON.toString());
-
-                HttpResponse response = httpclient.execute(httppost);
-                HttpEntity entity = response.getEntity();
-                        
-                if (entity != null) {
-                    InputStream instream = entity.getContent();
-                    try {
-                        //log.debug(IOUtils.toString(instream));
-			return IOUtils.toString(instream);
-                    } finally {
-                        instream.close();
-                    }
-                }
-
-		return null;
-        }
-	
 	protected String getAuthorString(Entity entity) {
 		StringJoiner author = new StringJoiner("; ");
 		String authorString = null;
 		int n = 0;
-		// TODO shorten and add "et al." when more than 2 authors
+		// shorten and add "et al." when more than 2 authors
 		if (null != entity.getAuthors()) {
 			for (String a : entity.getAuthors()) {
 				if (n > 1) {
@@ -218,94 +188,9 @@ public class LinkIndexer extends ElasticIndexer {
 		if (null == authorString) return author.toString();
 		else return authorString;
 	}
+	
+	// end of importer's methods
 
-//end of Importer's methods
-	// TODO citedData that could not be linked is ignored
-	// desired behaviour might change in the future; if so, modify here
-/*
-	private List<EntityLink> getGwsLinksForEntity(
-			Multimap<String, String> entityEntityMap, 
-			Multimap<String, String> entitiesLinkMap,
-			String startEntityUri, Multimap<String, String> toEntities, 
-			List<EntityLink> processedLinks) {
-		List<EntityLink> flattenedLinks = new ArrayList<>();
-		for (Map.Entry<String, String> entry : toEntities.entries()) {
-			Entity toEntity = getInputDataStoreClient().get(Entity.class, entry.getKey().replaceAll("http://.*//*entity", "http://svkolodtest.gesis.intra/link-db/api/entity"));
-			EntityLink link = getInputDataStoreClient().get(EntityLink.class, entry.getValue().replaceAll("http://.*//*entityLink", "http://svkolodtest.gesis.intra/link-db/api/entityLink"));
-			
-			if (!toEntity.getEntityType().equals(EntityType.citedData)) {
-
-				EntityLink directLink = new EntityLink();
-				directLink.setFromEntity(startEntityUri);
-				directLink.setToEntity(link.getToEntity());
-				directLink.setEntityRelations(link.getEntityRelations());
-				// set cited data as link view
-				Entity fromEntity = getInputDataStoreClient().get(Entity.class, link.getFromEntity().replaceAll("http://.*//*entity", "http://svkolodtest.gesis.intra/link-db/api/entity"));
-				StringJoiner linkView = new StringJoiner(" ");
-				//TODO check
-				if (fromEntity.getEntityType().equals(EntityType.citedData)) {
-					linkView.add(fromEntity.getName());
-					//for (String number : fromEntity.getNumericInfo()) linkView.add(number);
-					if (null != fromEntity.getNumericInfo() && !fromEntity.getNumericInfo().isEmpty()) linkView.add(fromEntity.getNumericInfo().get(0));
-				}
-				directLink.setLinkView(linkView.toString());
-				directLink.setTags(link.getTags());
-				
-				int intermediateLinks = processedLinks.size();
-				String linkReason = null;
-				double confidenceSum = 0;
-				Set<String> provenance = new HashSet<>();
-				for (EntityLink intermediateLink : processedLinks) {
-					confidenceSum += intermediateLink.getConfidence();
-					if (null != intermediateLink.getLinkReason()) {
-						//TextualReference ref = getInputDataStoreClient().get(TextualReference.class, intermediateLink.getLinkReason().replaceAll("http://.*//*textualReference", "http://svkolodtest.gesis.intra/link-db/api/textualReference"));
-						//TODO REPLACE TOKENS LIKE -RRB-
-						//linkReason = ref.toPrettyString();
-						linkReason = intermediateLink.getLinkReason().replaceAll("http://.*//*textualReference", "http://svkolodtest.gesis.intra/link-db/api/textualReference");
-					}
-					directLink.addAllTags(intermediateLink.getTags());
-					for (EntityRelation relation : intermediateLink.getEntityRelations()) {
-						if (!relation.equals(EntityRelation.same_as)) directLink.addEntityRelation(relation);
-					}
-					// provenance entries of intermediate links do not have to be equal - e.g. manually specified cited data may have been linked to datasets automatically
-					if (null != intermediateLink.getProvenance() && !intermediateLink.getProvenance().isEmpty()) provenance.add(intermediateLink.getProvenance());
-				}
-				confidenceSum += link.getConfidence();
-				intermediateLinks += 1;
-				directLink.setConfidence(confidenceSum / intermediateLinks);
-				directLink.setLinkReason(linkReason);
-				log.debug("reference: " + linkReason);
-						
-				if (null != link.getProvenance() && !link.getProvenance().isEmpty()) provenance.add(link.getProvenance());
-				if (null == provenance || provenance.isEmpty()) directLink.setProvenance("InfoLink");
-				else directLink.setProvenance(String.join(" + ", provenance));
-						
-				directLink.addAllTags(getExecution().getTags());
-				log.debug("flattenedLink: " + SerializationUtils.toJSON(directLink));
-				flattenedLinks.add(directLink);
-
-			} else {
-				toEntities = ArrayListMultimap.create();
-				// only use 1:1 links
-				/*if (entityEntityMap.get(toEntity.getUri()).size() > 1) {
-					log.debug("citedData was linked to more than one dataset - ignoring: " + toEntity.getName() + " -> " + entityEntityMap.get(toEntity.getUri()));
-					processedLinks.add(link);
-					flattenedLinks.addAll(getFlattenedLinksForEntity(entityEntityMap, entitiesLinkMap, startEntityUri, toEntities, processedLinks));
-				}
-				else {*//*
-					for (String toEntityUri : entityEntityMap.get(toEntity.getUri())) {
-						toEntities.putAll(toEntityUri, entitiesLinkMap.get(toEntity.getUri() + toEntityUri));
-					}
-					processedLinks.add(link);
-					flattenedLinks.addAll(getGwsLinksForEntity(entityEntityMap,
-							entitiesLinkMap, startEntityUri,
-							toEntities,
-							processedLinks));
-				//}
-			}
-		}
-		return flattenedLinks;
-	}*/
 	private List<EntityLink> getFlattenedLinksForEntity(
 			Multimap<String, String> entityEntityMap, 
 			Multimap<String, String> entitiesLinkMap,
@@ -339,19 +224,12 @@ public class LinkIndexer extends ElasticIndexer {
 							fromEntity.setEntityView(linkView.toString());
 							getOutputDataStoreClient().put(Entity.class, fromEntity, fromEntity.getUri());
 						}
-
-					//	linkView.add(fromEntity.getEntityView());
-						//if (null == directLink.getProvenance() || directLink.getProvenance().isEmpty() || directLink.getProvenance().equals("InfoLink")) {
-						//if (null != fromEntity.getNumericInfo() && !fromEntity.getNumericInfo().isEmpty()) linkView.add(fromEntity.getNumericInfo().get(0));
-					//	}
 					}
 					directLink.setLinkView(fromEntity.getEntityView());
 				} else {
 					StringJoiner linkView = new StringJoiner(" ");
 
-					//TODO set link view for infolisLinks
-					//if (null == directLink.getProvenance() || directLink.getProvenance().isEmpty() || directLink.getProvenance().equals("InfoLink")) {
-					// hack for infolis links
+					// set link view for infolisLinks
 					if (null == toEntity.getEntityView() || toEntity.getEntityView().isEmpty()) {
 						linkView.add(toEntity.getName());
 						if (null != toEntity.getNumericInfo() && !toEntity.getNumericInfo().isEmpty()) {
@@ -360,7 +238,6 @@ public class LinkIndexer extends ElasticIndexer {
 						toEntity.setEntityView(linkView.toString());
 						getOutputDataStoreClient().put(Entity.class, toEntity, toEntity.getUri());
 					} 
-					//linkView.add(toEntity.getEntityView());
 					directLink.setLinkView(toEntity.getEntityView());
 				}
 				directLink.setTags(link.getTags());
@@ -373,9 +250,6 @@ public class LinkIndexer extends ElasticIndexer {
 				for (EntityLink intermediateLink : processedLinks) {
 					confidenceSum += intermediateLink.getConfidence();
 					if (null != intermediateLink.getLinkReason()) {
-						//TextualReference ref = getInputDataStoreClient().get(TextualReference.class, intermediateLink.getLinkReason().replaceAll("http://.*/textualReference", "http://svkolodtest.gesis.intra/link-db/api/textualReference"));
-						//TODO REPLACE TOKENS LIKE -RRB-
-						//linkReason = ref.toPrettyString();	
 						linkReason = intermediateLink.getLinkReason().replaceAll("http://.*/textualReference", "http://svkolodtest.gesis.intra/link-db/api/textualReference");
 					}
 					directLink.addAllTags(intermediateLink.getTags());
@@ -415,11 +289,6 @@ public class LinkIndexer extends ElasticIndexer {
 		Multimap<String, String> entityEntityMap = ArrayListMultimap.create();
 		Multimap<String, String> entitiesLinkMap = ArrayListMultimap.create();
 		for (EntityLink link : links) {
-			//TODO refactor
-			//treat only infolis links here
-			//if (!(null == link.getProvenance() || link.getProvenance().isEmpty())) continue;
-			//if (link.getProvenance().equals("dbk")) continue;
-			//log.debug("found infolis link: " + link.toString());
 			Entity fromEntity = getInputDataStoreClient().get(Entity.class, link.getFromEntity().replaceAll("http://.*/entity", "http://svkolodtest.gesis.intra/link-db/api/entity"));
 			if (fromEntity.getTags().contains("infolis-ontology")) continue;
 			entityEntityMap.put(fromEntity.getUri(), link.getToEntity());
@@ -435,104 +304,56 @@ public class LinkIndexer extends ElasticIndexer {
 			}
 			
 			flattenedLinks.addAll(getFlattenedLinksForEntity(entityEntityMap, entitiesLinkMap, entityUri, linkedEntities, new ArrayList<>()));
-			//flattenedLinks.addAll(getGwsLinksForEntity(entityEntityMap, entitiesLinkMap, entityUri, linkedEntities, new ArrayList<>()));
 		}
 		return flattenedLinks;
 	}
 	
-	/*private void put(HttpClient httpclient, HttpPut httpput, StringEntity data) throws ClientProtocolException, IOException {
-		httpput.setEntity(data);
-		//httpput.setHeader("content-type", "application/json;charset=UTF-8");
-		httpput.setHeader("content-type", ContentType.APPLICATION_JSON.toString());
-		//httpput.setHeader("Accept", "application/json");
-		httpput.setHeader("Accept", ContentType.APPLICATION_JSON.toString());
-
-		HttpResponse response = httpclient.execute(httpput);
-		HttpEntity entity = response.getEntity();
-			
-		if (entity != null) {
-		    InputStream instream = entity.getContent();
-		    try {
-		        log.debug(IOUtils.toString(instream));
-		    } finally {
-		        instream.close();
-		    }
-		}
-	}
-	
-	private void post(HttpClient httpclient, HttpPost httppost, StringEntity data) throws ClientProtocolException, IOException {
-		httppost.setEntity(data);
-		//httppost.setHeader("content-type", "application/json;charset=UTF-8");
-		httppost.setHeader("content-type", ContentType.APPLICATION_JSON.toString());
-		//httppost.setHeader("Accept", "application/json");
-		httppost.setHeader("Accept", ContentType.APPLICATION_JSON.toString());
-
-		HttpResponse response = httpclient.execute(httppost);
-		HttpEntity entity = response.getEntity();
-			
-		if (entity != null) {
-		    InputStream instream = entity.getContent();
-		    try {
-		        log.debug(IOUtils.toString(instream));
-		    } finally {
-		        instream.close();
-		    }
-		}
-	}*/
-	
 	void pushToIndex(String index, List<EntityLink> flattenedLinks) throws ClientProtocolException, IOException {
 		Set<Entity> entities = new HashSet<>();	
 		String prefixRegex = "http://.*/entity/";
-		Pattern prefixPattern = Pattern.compile(prefixRegex);
-	 	// assume all entities have the same prefix
-		String entityPrefix = "";	
 		if (null == index || index.isEmpty()) index = InfolisConfig.getElasticSearchIndex();
-		String newPrefix = index + "Entity/";
 		HttpClient httpclient = HttpClients.createDefault();
 		
 		for (EntityLink link : flattenedLinks) {
-			//Matcher m = prefixPattern.matcher(link.getFromEntity());
-			//if (m.find()) entityPrefix = m.group();
-			Entity fromEntity = getInputDataStoreClient().get(Entity.class, link.getFromEntity().replaceAll("http://.*/entity", "http://svkolodtest.gesis.intra/link-db/api/entity"));
-			Entity toEntity = getInputDataStoreClient().get(Entity.class, link.getToEntity().replaceAll("http://.*/entity", "http://svkolodtest.gesis.intra/link-db/api/entity"));
+			Entity fromEntity = getInputDataStoreClient().get(Entity.class, link.getFromEntity().replaceAll(prefixRegex, "http://svkolodtest.gesis.intra/link-db/api/entity"));
+			Entity toEntity = getInputDataStoreClient().get(Entity.class, link.getToEntity().replaceAll(prefixRegex, "http://svkolodtest.gesis.intra/link-db/api/entity"));
 			// link to za numbers / elastic search entities
 			log.debug(toEntity.getName());
 			log.debug(toEntity.getEntityView());
 			//quick hack for current ssoar infolink data; remove later
-			if (toEntity.getEntityType().equals(EntityType.dataset)) {
-				log.debug(toEntity.getIdentifiers().get(0));
-				toEntity = getDataSearchEntity(toEntity.getIdentifiers().get(0));
-				//log.debug(toEntity.getIdentifiers().get(0));
-				log.debug(SerializationUtils.toJSON(toEntity).toString());
-				//System.exit(0);
-				//toEntity.setGwsId("doi:" + toEntity.getIdentifiers().get(0).replace("/", "-"));
-				// ignore link if dataset wasn't found in dbk or elasticsearch
-				if (null == toEntity) continue;
-			}
-
-			for (String pubId : fromEntity.getIdentifiers())  {
-				if (null == pubId) continue;
-				else if (pubId.startsWith("urn:")) {
-					fromEntity.setGwsId(pubId);
-					break;
+			//treat only infolis links here
+			if (null == link.getProvenance() || link.getProvenance().isEmpty() || link.getProvenance().equals("InfoLink")) {
+				if (toEntity.getEntityType().equals(EntityType.dataset)) {
+					log.debug(toEntity.getIdentifiers().get(0));
+					toEntity = getDataSearchEntity(toEntity.getIdentifiers().get(0));
+					//log.debug(toEntity.getIdentifiers().get(0));
+					log.debug(SerializationUtils.toJSON(toEntity).toString());
+					//System.exit(0);
+					//toEntity.setGwsId("doi:" + toEntity.getIdentifiers().get(0).replace("/", "-"));
+					// ignore link if dataset wasn't found in dbk or elasticsearch
+					if (null == toEntity) continue;
 				}
+	
+				for (String pubId : fromEntity.getIdentifiers())  {
+					if (null == pubId) continue;
+					else if (pubId.startsWith("urn:")) {
+						fromEntity.setGwsId(pubId);
+						break;
+					}
+				}
+				if (null != fromEntity.getYear() && !fromEntity.getYear().isEmpty()) {;}
+				else if (null!= fromEntity.getNumericInfo() && !fromEntity.getNumericInfo().isEmpty()) fromEntity.setYear(fromEntity.getNumericInfo().get(0));
+				else fromEntity.setYear("o.J.");
+				
+				if (null!= toEntity.getNumericInfo() && !toEntity.getNumericInfo().isEmpty()) toEntity.setYear(toEntity.getNumericInfo().get(0));
+				else fromEntity.setYear("o.J.");
+				
+				StringJoiner fromEntityAuthor = new StringJoiner("; ");
+				if (null != fromEntity.getAuthors()) for (String author : fromEntity.getAuthors()) fromEntityAuthor.add(author);
+
+				fromEntity.setEntityView(String.format("%s (%s): %s", fromEntityAuthor.toString(), fromEntity.getYear(), fromEntity.getName()));
 			}
-			if (null != fromEntity.getYear() && !fromEntity.getYear().isEmpty()) {;}
-			else if (null!= fromEntity.getNumericInfo() && !fromEntity.getNumericInfo().isEmpty()) fromEntity.setYear(fromEntity.getNumericInfo().get(0));
-			else fromEntity.setYear("o.J.");
 			
-			if (null!= toEntity.getNumericInfo() && !toEntity.getNumericInfo().isEmpty()) toEntity.setYear(toEntity.getNumericInfo().get(0));
-			else fromEntity.setYear("o.J.");
-			
-			StringJoiner fromEntityAuthor = new StringJoiner("; ");
-			if (null != fromEntity.getAuthors()) for (String author : fromEntity.getAuthors()) fromEntityAuthor.add(author);
-			StringJoiner toEntityAuthor = new StringJoiner("; ");
-			//if (null != toEntity.getAuthors()) for (String author : toEntity.getAuthors()) toEntityAuthor.add(author);
-			fromEntity.setEntityView(String.format("%s (%s): %s", fromEntityAuthor.toString(), fromEntity.getYear(), fromEntity.getName()));
-			//toEntity.setEntityView(String.format("%s", toEntity.getName()));
-			//end of hack
-			//post only links when ids of both entities are known
-			//if ((null == toEntity.getGwsId()) || (null == fromEntity.getGwsId())) continue;
 			if (null != fromEntity.getGwsId()) fromEntity.setUri(fromEntity.getGwsId());
 			else fromEntity.setUri(fromEntity.getUri().replaceAll("http.*/entity/","literaturpool-"));
 			if (null != toEntity.getGwsId()) toEntity.setUri(toEntity.getGwsId());
@@ -548,18 +369,13 @@ public class LinkIndexer extends ElasticIndexer {
 			link.setFromEntity(fromEntity.getUri());
 			link.setToEntity(toEntity.getUri());
 
-			//DbIndexer indexer = new DbIndexer(getInputDataStoreClient(), getOutputDataStoreClient(), getInputFileResolver(), getOutputFileResolver());
 			//don't push link to index if its entities have too little metadata
 			if (!showInGws(fromEntity, toEntity)) continue;
 			ElasticLink elink = new ElasticLink(link);
-			//elink.setGws_fromID(elink.getFromEntity());
-			//elink.setGws_toID(elink.getToEntity());
 			elink.setGws_fromView(fromEntity.getEntityView());
 			elink.setGws_toView(toEntity.getEntityView());
 			elink.setGws_fromType(fromEntity.getEntityType());
 			elink.setGws_toType(toEntity.getEntityType());
-			//TODO refactor
-			//elink.setProvenance("InfoLink");
 			// set URI in a way that duplicates are overriden
 			//TODO do not overwrite links; instead:search if links with such a uri already exist. if so: merge linkReasons and confidence scores, pssibly other fields as well?
 			elink.setUri(elink.getGws_fromID() + "---" + elink.getGws_toID());
@@ -581,45 +397,14 @@ public class LinkIndexer extends ElasticIndexer {
 
 		for (Entity entity : entities) {
 			HttpPut httpput = new HttpPut(index + "Entity/" + entity.getUri());
-			//Entity e = getInputDataStoreClient().get(Entity.class, entity.replaceAll(newPrefix, entityPrefix));
-			//workaround for links with incorrect prefix
-			//Entity e = getInputDataStoreClient().get(Entity.class, entity.replaceAll(newPrefix, "http://svkolodtest.gesis.intra/link-db/api/entity/"));
-			//e.setUri(e.getGwsId());
 			put(httpclient, httpput, new StringEntity(SerializationUtils.toJSON(entity), ContentType.APPLICATION_JSON));
 			log.debug(String.format("put entity \"%s\" to %s", entity.getUri(), index));
 		}
 		
 	}
-	
-	private List<String> getAllLinksInDatabase() {
-		List<String> links = new ArrayList<>();
-		Multimap<String, String> query = ArrayListMultimap.create();
-		//TODO refactor...
-		//query.put("provenance", "");
-		for (EntityLink link : getInputDataStoreClient().search(EntityLink.class, query)) {
-			//hack for current infolislinks
-			//if (null == link.getProvenance() && !link.getTags().contains("infolis-ontology")) links.add(link.getUri());
-			if (!link.getTags().contains("infolis-ontology")) links.add(link.getUri());
-		}
-		return links;
-	}
 
 	List<EntityLink> getLinksToPush() {
-		List<EntityLink> links = new ArrayList<>();
-		return links;
+		return flattenLinks(getInputDataStoreClient().get(EntityLink.class, getExecution().getLinks()));
 	}
 
-	
-	// TODO integrate ignoreLinksWithProvenance method...
-	// TODO use ElasticIndexer's methods...
-	@Override
-	public void execute() throws IOException {
-		//either use specified set of links or use on all links in the database
-		if (null == getExecution().getLinks() || getExecution().getLinks().isEmpty()) {
-			debug(log, "list of input links is empty, indexing all links in the database");
-			getExecution().setLinks(getAllLinksInDatabase());
-		}
-		pushToIndex(getExecution().getIndexDirectory(), flattenLinks(getInputDataStoreClient().get(EntityLink.class, getExecution().getLinks())));
-		
-	}
 }

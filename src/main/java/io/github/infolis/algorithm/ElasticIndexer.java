@@ -5,11 +5,9 @@ import java.io.InputStream;
 import java.io.File;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
-import java.util.Set;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.io.FileUtils;
@@ -21,21 +19,19 @@ import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.entity.ContentType;
-import org.apache.http.impl.client.HttpClients;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
 
-import io.github.infolis.InfolisConfig;
 import io.github.infolis.datastore.DataStoreClient;
 import io.github.infolis.datastore.FileResolver;
 import io.github.infolis.model.entity.Entity;
 import io.github.infolis.model.EntityType;
-import io.github.infolis.model.entity.EntityLink;
 import io.github.infolis.model.TextualReference;
-import io.github.infolis.util.SerializationUtils;
+import io.github.infolis.model.entity.EntityLink;
+
 
 public abstract class ElasticIndexer extends BaseAlgorithm {
 
@@ -64,22 +60,23 @@ public abstract class ElasticIndexer extends BaseAlgorithm {
 		}
 	}
 	
-	protected void post(HttpClient httpclient, HttpPost httppost, StringEntity data) throws ClientProtocolException, IOException {
-		httppost.setEntity(data);
-		httppost.setHeader("content-type", ContentType.APPLICATION_JSON.toString());
-		httppost.setHeader("Accept", ContentType.APPLICATION_JSON.toString());
+	protected String post(HttpClient httpclient, HttpPost httppost, StringEntity data) throws ClientProtocolException, IOException {
+        httppost.setEntity(data);
+        httppost.setHeader("content-type", ContentType.APPLICATION_JSON.toString());
+        httppost.setHeader("Accept", ContentType.APPLICATION_JSON.toString());
 
-		HttpResponse response = httpclient.execute(httppost);
-		HttpEntity entity = response.getEntity();
-			
-		if (entity != null) {
-		    InputStream instream = entity.getContent();
-		    try {
-		        log.debug(IOUtils.toString(instream));
-		    } finally {
-		        instream.close();
-		    }
-		}
+        HttpResponse response = httpclient.execute(httppost);
+        HttpEntity entity = response.getEntity();
+                
+        if (entity != null) {
+            InputStream instream = entity.getContent();
+            try {
+                return IOUtils.toString(instream);
+            } finally {
+                instream.close();
+            }
+        }
+        return null;
 	}
 
 	public class ElasticLink extends EntityLink {
@@ -231,6 +228,8 @@ public abstract class ElasticIndexer extends BaseAlgorithm {
 		for (EntityLink link : getInputDataStoreClient().search(EntityLink.class, query)) {
 			if (null != ignoreLinksWithProvenance && !ignoreLinksWithProvenance.isEmpty()) {
 				for (String provenance : ignoreLinksWithProvenance) {
+					/*//if (null == link.getProvenance() && !link.getTags().contains("infolis-ontology")) links.add(link.getUri());
+					if (!link.getTags().contains("infolis-ontology")) links.add(link.getUri());*/
 					if (link.getProvenance().equals(provenance)) continue;
 				}
 			}
@@ -241,10 +240,14 @@ public abstract class ElasticIndexer extends BaseAlgorithm {
 
 	@Override
 	public void execute() throws IOException {
-		getExecution().setLinks(new ArrayList<>());
+		//either use specified set of links or use on all links in the database
+		if (null == getExecution().getLinks() || getExecution().getLinks().isEmpty()) {
+			debug(log, "list of input links is empty, indexing all links in the database");
+			getExecution().setLinks(new ArrayList<>());
+			// standard: ignore "infolis-ontology" data...
+			getData(getExecution().getSeeds());	
+		}
 		getExecution().setLinkedEntities(new ArrayList<>());
-		// standard: ignore "infolis-ontology" data...
-		getData(getExecution().getSeeds());		
 		pushToIndex(getExecution().getIndexDirectory(), getLinksToPush());
 		
 	}
