@@ -154,7 +154,9 @@ public class LinkIndexer extends ElasticIndexer {
 	protected Entity setEntityView(Entity entity) {
 		String year = entity.getYear();
 		if (null == year) year = "o.J.";
-		entity.setEntityView(String.format("%s (%s): %s", getAuthorString(entity), entity.getYear(), entity.getName()));
+		String authors = getAuthorString(entity.getAuthors());
+		if (authors.isEmpty()) authors = getAuthorString(entity.getEditors());
+		entity.setEntityView(String.format("%s (%s): %s", authors, year, entity.getName()));
 		return entity;
 	}
 
@@ -169,13 +171,14 @@ public class LinkIndexer extends ElasticIndexer {
 		return getUniqueEntity(toSearch);
 	}
 
-	protected String getAuthorString(Entity entity) {
+	//modified
+	protected String getAuthorString(List<String> authors) {
 		StringJoiner author = new StringJoiner("; ");
 		String authorString = null;
 		int n = 0;
 		// shorten and add "et al." when more than 2 authors
-		if (null != entity.getAuthors()) {
-			for (String a : entity.getAuthors()) {
+		if (null != authors) {
+			for (String a : authors) {
 				if (n > 1) {
 					authorString = author.toString() + " et al.";
 					break;
@@ -315,8 +318,8 @@ public class LinkIndexer extends ElasticIndexer {
 		HttpClient httpclient = HttpClients.createDefault();
 		
 		for (EntityLink link : flattenedLinks) {
-			Entity fromEntity = getInputDataStoreClient().get(Entity.class, link.getFromEntity().replaceAll(prefixRegex, "http://svkolodtest.gesis.intra/link-db/api/entity"));
-			Entity toEntity = getInputDataStoreClient().get(Entity.class, link.getToEntity().replaceAll(prefixRegex, "http://svkolodtest.gesis.intra/link-db/api/entity"));
+			Entity fromEntity = getInputDataStoreClient().get(Entity.class, link.getFromEntity().replaceAll(prefixRegex, "http://svkolodtest.gesis.intra/link-db/api/entity/"));
+			Entity toEntity = getInputDataStoreClient().get(Entity.class, link.getToEntity().replaceAll(prefixRegex, "http://svkolodtest.gesis.intra/link-db/api/entity/"));
 			// link to za numbers / elastic search entities
 			log.debug(toEntity.getName());
 			log.debug(toEntity.getEntityView());
