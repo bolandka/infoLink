@@ -275,6 +275,7 @@ public class LinkIndexer extends ElasticIndexer {
 				directLink.addAllTags(getExecution().getTags());
 				log.debug("flattenedLink: " + SerializationUtils.toJSON(directLink));
 				flattenedLinks.add(directLink);
+				processedLinks = new ArrayList<>();
 
 			} else {
 				processedLinks.add(link);
