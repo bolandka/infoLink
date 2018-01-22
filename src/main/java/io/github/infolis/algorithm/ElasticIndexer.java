@@ -87,6 +87,7 @@ public abstract class ElasticIndexer extends BaseAlgorithm {
 		private String gws_fromID;
 		private String gws_toID;
 		private String gws_link;
+		private List<String> gws_linkReasons = new ArrayList<>();
 
 		private Map<String, String> getDataUrls(String filename) {
 			Map<String, String> data_urls = new HashMap<>();
@@ -132,7 +133,11 @@ public abstract class ElasticIndexer extends BaseAlgorithm {
 			this.setGws_toID(copyFrom.getToEntity());
 			this.setConfidence(copyFrom.getConfidence());
 			String linkReason = copyFrom.getLinkReason();
-			if (null != linkReason && !linkReason.isEmpty()) this.setLinkReason(removePtb3escaping(resolveLinkReason(linkReason)));
+			/*if (null != linkReason && !linkReason.isEmpty()) {
+				this.setLinkReason(removePtb3escaping(resolveLinkReason(linkReason)));
+				this.addGws_linkReason(this.getLinkReason());
+			}*/
+			this.setLinkReason(copyFrom.getLinkReason());
 			this.setEntityRelations(copyFrom.getEntityRelations());
 			this.setProvenance(copyFrom.getProvenance());
 			this.setLinkView(copyFrom.getLinkView());
@@ -145,6 +150,7 @@ public abstract class ElasticIndexer extends BaseAlgorithm {
 
 		private String resolveLinkReason(String uri) {
 			return getInputDataStoreClient().get(TextualReference.class, uri).toPrettyString();
+			//return getInputDataStoreClient().get(TextualReference.class, uri).toString();
 		}
 
 		public void setGws_fromID(String gws_fromID) {
@@ -201,6 +207,22 @@ public abstract class ElasticIndexer extends BaseAlgorithm {
 
 		public String getGws_link() {
 			return this.gws_link;
+		}
+
+		public void addGws_linkReason(String linkReason) {
+			this.gws_linkReasons.add(linkReason);
+		}
+	
+		public void setAndResolveGws_linkReasons(List<String> linkReasons) {
+			for (String linkReason : linkReasons) this.gws_linkReasons.add(removePtb3escaping(resolveLinkReason(linkReason)));
+		}
+
+		public void setGws_linkReasons(List<String> linkReasons) {
+			this.gws_linkReasons = linkReasons;
+		}
+
+		public List<String> getGws_linkReasons() {
+			return this.gws_linkReasons;
 		}
 	
 	}	

@@ -10,9 +10,11 @@ import java.util.StringJoiner;
 
 import java.io.StringReader;
 import java.util.Arrays;
+import java.util.stream.Collectors;
 import javax.json.Json;
 import javax.json.JsonArray;
 import javax.json.JsonObject;
+import javax.json.JsonNumber;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.HashMultimap;
 
@@ -68,6 +70,107 @@ public class LinkIndexer extends ElasticIndexer {
 		return dataset;
 	}
 
+	private JsonArray getHitsFromESIndex(String index, String query) {
+		HttpClient httpclient = HttpClients.createDefault();
+		HttpPost httppost = new HttpPost(index);
+		String answer = null;
+		try {
+			answer = post(httpclient, httppost, new StringEntity(query, ContentType.APPLICATION_JSON));
+		} catch (IOException e) { log.error(e.toString()); }
+		if (null == answer) return null;
+
+		log.debug(answer);
+		JsonObject json = Json.createReader(new StringReader(answer)).readObject();
+		JsonObject hits1 = json.getJsonObject("hits");
+		try {
+			JsonArray hits = hits1.getJsonArray("hits");
+			return hits;
+		} catch (NullPointerException npe) {
+			log.warn(npe.toString());
+			log.debug(json.toString());
+		}
+		return null;
+	}
+
+	private List<String> toJavaStringList(JsonArray jsonArray) {
+		List<String> list = new ArrayList<>();
+		for (int i=0; i<jsonArray.size(); i++) {
+			list.add(jsonArray.getString(i));
+		}
+		return list;
+	}
+
+	private Set<EntityRelation> toJavaEntityRelationSet(JsonArray jsonArray) {
+		Set<EntityRelation> set = new HashSet<>();
+		for (int i=0; i<jsonArray.size(); i++) {
+			set.add(EntityRelation.valueOf(jsonArray.getString(i)));
+		}
+		return set;
+	}
+	private ElasticLink getLinkFromIndex(String index, String id) {
+		String query = String.format("{ \"query\": {" +
+			"\"bool\": {" +
+				"\"must\": [{" + 
+					"\"query_string\": {"+
+					"\"default_field\": \"_all\"," +
+					"\"query\": \"_id:%s\"" +
+					"}" +
+				"}]," +
+				"\"must_not\":[]," +
+				"\"should\":[]" +
+			"}" +
+			"}," +
+			"\"from\":0," +
+			"\"size\":10," + 
+			"\"sort\":[]," + 
+			"\"facets\":{}" + 
+			"}"
+			, id);
+		JsonArray hits = getHitsFromESIndex(index, query);
+		if (null == hits || hits.isEmpty()) return null;
+		log.debug(hits.toString());
+
+		JsonObject entry = (JsonObject) hits.get(0);
+		JsonObject metadata = (JsonObject) entry.get("_source");
+		//JsonObject metadata = (JsonObject) source.get("dc");
+		JsonArray linkReasons = (JsonArray) metadata.get("gws_linkReasons");
+		String linkReason = metadata.getString("linkReason");
+		String fromEntity = metadata.getString("fromEntity");
+		String toEntity = metadata.getString("toEntity");
+		String gws_fromID = metadata.getString("gws_fromID");
+		String gws_toID = metadata.getString("gws_toID");
+		String linkView = metadata.getString("linkView");
+		String gws_link = null;
+		try {
+			gws_link = metadata.getString("gws_link");
+		} catch (ClassCastException cce) {;}
+		JsonNumber _confidence = metadata.getJsonNumber("confidence");
+		double confidence = _confidence.doubleValue();
+		JsonArray entityRelations = (JsonArray) metadata.get("entityRelations");
+		EntityType gws_fromType = EntityType.valueOf(metadata.getString("gws_fromType"));
+		EntityType gws_toType = EntityType.valueOf(metadata.getString("gws_toType"));
+		String gws_fromView = metadata.getString("gws_fromView");
+		String gws_toView = metadata.getString("gws_toView");
+
+		ElasticLink link = new ElasticLink();
+		link.setFromEntity(fromEntity);
+		link.setToEntity(toEntity);
+		List<String> _linkReasons = new ArrayList<>();
+		link.setGws_linkReasons(toJavaStringList(linkReasons));
+		link.setLinkReason(linkReason);
+		link.setGws_fromID(gws_fromID);
+		link.setGws_toID(gws_toID);
+		link.setGws_fromType(gws_fromType);
+		link.setGws_toType(gws_toType);
+		link.setGws_toView(gws_toView);
+		link.setGws_fromView(gws_fromView);
+		link.setLinkView(linkView);
+		link.setGws_link(gws_link);
+		link.setConfidence(confidence);	
+		link.setEntityRelations(toJavaEntityRelationSet(entityRelations));
+		return link;
+	}
+
 	private Entity getDatasearchDatasetWithDoi(String doi) {
 		String dataSearchIndex = "http://193.175.238.35:8089/dc/_search";
 		String query = "{ \"query\": {" +
@@ -92,18 +195,8 @@ public class LinkIndexer extends ElasticIndexer {
 					"}" +
 				"}" +
 			"}";
-		HttpClient httpclient = HttpClients.createDefault();
-		HttpPost httppost = new HttpPost(dataSearchIndex);
-		String answer = null;
-		try {
-			answer = post(httpclient, httppost, new StringEntity(query, ContentType.APPLICATION_JSON));
-		} catch (IOException e) { log.error(e.toString()); }
-		if (null == answer) return null;
-
-		JsonObject json = Json.createReader(new StringReader(answer)).readObject();
-		JsonObject hits1 = json.getJsonObject("hits");
-		JsonArray hits = hits1.getJsonArray("hits");
-		
+	
+		JsonArray hits = getHitsFromESIndex(dataSearchIndex, query);	
 		if (hits.size() > 1) log.warn("Dataset with doi seems to be registered in more than one repository; using first definition found: " + doi);
 		if (hits.size() < 1) return null;//log.debug(hits.get(0).toString());
 		JsonObject entry = (JsonObject) hits.get(0);
@@ -204,11 +297,11 @@ public class LinkIndexer extends ElasticIndexer {
 			Entity toEntity = getInputDataStoreClient().get(Entity.class, entry.getKey().replaceAll("http://.*/entity", "http://svkolodtest.gesis.intra/link-db/api/entity"));
 			EntityLink link = getInputDataStoreClient().get(EntityLink.class, entry.getValue().replaceAll("http://.*/entityLink", "http://svkolodtest.gesis.intra/link-db/api/entityLink"));
 			
-			toEntities = ArrayListMultimap.create();
+			Multimap<String, String> newToEntities = ArrayListMultimap.create();
 			for (String toEntityUri : entityEntityMap.get(toEntity.getUri())) {
-				toEntities.putAll(toEntityUri, entitiesLinkMap.get(toEntity.getUri() + toEntityUri));
+				newToEntities.putAll(toEntityUri, entitiesLinkMap.get(toEntity.getUri() + toEntityUri));
 			}
-			if ((!toEntity.getEntityType().equals(EntityType.citedData)) || toEntities.isEmpty()) {
+			if ((!toEntity.getEntityType().equals(EntityType.citedData)) || newToEntities.isEmpty()) {
 
 				EntityLink directLink = new EntityLink();
 				directLink.setFromEntity(startEntityUri);
@@ -247,13 +340,18 @@ public class LinkIndexer extends ElasticIndexer {
 				
 				int intermediateLinks = processedLinks.size();
 				String linkReason = null;
-				if (null != link.getLinkReason() && !link.getLinkReason().isEmpty()) linkReason = link.getLinkReason().replaceAll("http://.*/textualReference", "http://svkolodtest.gesis.intra/link-db/api/textualReference");
+				List<String> linkReasons = new ArrayList<>();
+				if (null != link.getLinkReason() && !link.getLinkReason().isEmpty()) {
+					linkReason = link.getLinkReason().replaceAll("http://.*/textualReference", "http://svkolodtest.gesis.intra/link-db/api/textualReference");
+					linkReasons.add(linkReason);
+				}
 				double confidenceSum = 0;
 				Set<String> provenance = new HashSet<>();
 				for (EntityLink intermediateLink : processedLinks) {
 					confidenceSum += intermediateLink.getConfidence();
 					if (null != intermediateLink.getLinkReason()) {
 						linkReason = intermediateLink.getLinkReason().replaceAll("http://.*/textualReference", "http://svkolodtest.gesis.intra/link-db/api/textualReference");
+						linkReasons.add(linkReason);
 					}
 					directLink.addAllTags(intermediateLink.getTags());
 					for (EntityRelation relation : intermediateLink.getEntityRelations()) {
@@ -265,7 +363,7 @@ public class LinkIndexer extends ElasticIndexer {
 				confidenceSum += link.getConfidence();
 				intermediateLinks += 1;
 				directLink.setConfidence(confidenceSum / intermediateLinks);
-				directLink.setLinkReason(linkReason);
+				directLink.setLinkReason(linkReasons.stream().collect(Collectors.joining("@@@")));
 				log.debug("reference: " + linkReason);
 						
 				if (null != link.getProvenance() && !link.getProvenance().isEmpty()) provenance.add(link.getProvenance());
@@ -275,14 +373,13 @@ public class LinkIndexer extends ElasticIndexer {
 				directLink.addAllTags(getExecution().getTags());
 				log.debug("flattenedLink: " + SerializationUtils.toJSON(directLink));
 				flattenedLinks.add(directLink);
-				processedLinks = new ArrayList<>();
-
 			} else {
 				processedLinks.add(link);
 				flattenedLinks.addAll(getFlattenedLinksForEntity(entityEntityMap,
 					entitiesLinkMap, startEntityUri,
-					toEntities,
+					newToEntities,
 					processedLinks));
+				processedLinks = new ArrayList<>();
 			}
 		}
 		return flattenedLinks;
@@ -311,11 +408,28 @@ public class LinkIndexer extends ElasticIndexer {
 		}
 		return flattenedLinks;
 	}
+
+
+	// TODO implement full link merging including ontology stuff
+	private ElasticLink mergeLinks(ElasticLink link1, ElasticLink link2) {
+		// use highest confidence value
+		if (link1.getConfidence() > link2.getConfidence()) link1.setConfidence(link2.getConfidence());
+		// merge all linkReasons
+		Set<String> linkReasons = new HashSet<>();
+		linkReasons.addAll(link1.getGws_linkReasons());
+		linkReasons.addAll(link2.getGws_linkReasons());
+		link1.setGws_linkReasons(new ArrayList<>(linkReasons));
+		// TODO what to do with entity relations and other fields?
+		return link1;
+	}
 	
 	void pushToIndex(String index, List<EntityLink> flattenedLinks) throws ClientProtocolException, IOException {
 		Set<Entity> entities = new HashSet<>();	
 		String prefixRegex = "http://.*/entity/";
-		if (null == index || index.isEmpty()) index = InfolisConfig.getElasticSearchIndex();
+		if (null == index || index.isEmpty()) {
+			index = InfolisConfig.getElasticSearchIndex();
+		}
+		getExecution().setIndexDirectory(index);
 		HttpClient httpclient = HttpClients.createDefault();
 		
 		for (EntityLink link : flattenedLinks) {
@@ -341,7 +455,12 @@ public class LinkIndexer extends ElasticIndexer {
 				for (String pubId : fromEntity.getIdentifiers())  {
 					if (null == pubId) continue;
 					else if (pubId.startsWith("urn:")) {
-						fromEntity.setGwsId(pubId);
+						//fromEntity.setGwsId(pubId);
+						String gwsId = pubId.replace("urn:nbn:de:0168-ssoar", "gesis-ssoar");
+						gwsId = gwsId.substring(0, gwsId.length()-1);
+						if (gwsId.endsWith("-")) gwsId = gwsId.substring(0, gwsId.length()-1);
+						fromEntity.setGwsId(gwsId);
+						fromEntity.getIdentifiers().add(gwsId);
 						break;
 					}
 				}
@@ -350,7 +469,7 @@ public class LinkIndexer extends ElasticIndexer {
 				else fromEntity.setYear("o.J.");
 				
 				if (null!= toEntity.getNumericInfo() && !toEntity.getNumericInfo().isEmpty()) toEntity.setYear(toEntity.getNumericInfo().get(0));
-				else fromEntity.setYear("o.J.");
+				else toEntity.setYear("o.J.");
 				
 				StringJoiner fromEntityAuthor = new StringJoiner("; ");
 				if (null != fromEntity.getAuthors()) for (String author : fromEntity.getAuthors()) fromEntityAuthor.add(author);
@@ -380,9 +499,18 @@ public class LinkIndexer extends ElasticIndexer {
 			elink.setGws_toView(toEntity.getEntityView());
 			elink.setGws_fromType(fromEntity.getEntityType());
 			elink.setGws_toType(toEntity.getEntityType());
+			List<String> _linkReasons = Arrays.stream(elink.getLinkReason().split("@@@"))
+				.filter(x -> (x != null && !x.isEmpty()))
+				.collect(Collectors.toList());
+			elink.setAndResolveGws_linkReasons(_linkReasons);
 			// set URI in a way that duplicates are overriden
 			//TODO do not overwrite links; instead:search if links with such a uri already exist. if so: merge linkReasons and confidence scores, pssibly other fields as well?
-			elink.setUri(elink.getGws_fromID() + "---" + elink.getGws_toID());
+			String linkUri = elink.getGws_fromID() + "---" + elink.getGws_toID();
+			ElasticLink duplicate = getLinkFromIndex(getExecution().getIndexDirectory() + "_search", linkUri);
+			if (null != duplicate) elink = mergeLinks(elink, duplicate);
+
+			elink.setUri(linkUri);
+
 			if (toEntity.getEntityType().equals(EntityType.citedData)) elink.setGws_link(elink.getGwsLink(toEntity.getName().replaceAll("\\d", "").trim()));
 			if (null != elink.getUri()) {
 				HttpPut httpput = new HttpPut(index + "EntityLink/" + elink.getUri().replaceAll("http://.*/entityLink/", ""));
