@@ -149,7 +149,7 @@ public class DaraSolrQueryService extends QueryService {
         	} catch (NullPointerException npe) {
         		log.warn("search result does not have a doi. Ignoring");
         		//sr.setIdentifier("");
-        		break;
+        		continue;
             }
 	        DateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss");
 	        Date date = new Date();

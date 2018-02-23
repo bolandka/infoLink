@@ -25,7 +25,7 @@ public class DaraHTMLQueryServiceTest {
 	
 	public static Set<ExpectedOutput> getExpectedOutput() {
 		QueryService queryService = new DaraHTMLQueryService();
-		queryService.setMaxNumber(25);
+		queryService.setMaxNumber(27);
 		Entity entity = new Entity();
 		entity.setName("Studierendensurvey");
 		Class<? extends SearchResultLinker> searchResultLinkerClass = MultiMatchesLinker.class;
@@ -57,6 +57,8 @@ public class DaraHTMLQueryServiceTest {
 		expectedDoiTitleMap.put("10.4232/1.3511", "Studiensituation und studentische Orientierungen 1997/98 (Studierenden-Survey)");
 		expectedDoiTitleMap.put("10.4232/1.12505", "Studiensituation und studentische Orientierungen 1997/98 (Studierenden-Survey)");
 		expectedDoiTitleMap.put("10.4232/1.12494", "Studiensituation und studentische Orientierungen (Studierenden-Survey) Kumulation 1983 - 2013");
+		expectedDoiTitleMap.put("10.4232/1.12967", "Studiensituation und studentische Orientierungen 2015/16 (Studierenden-Survey)");
+		expectedDoiTitleMap.put("10.4232/1.12974", "Studiensituation und studentische Orientierungen (Studierenden-Survey) Kumulation 1983 - 2016");
 
 		ExpectedOutput output = new ExpectedOutput(queryService, entity, searchResultLinkerClass, expectedDoiTitleMap);
 		expectedOutput.add(output);

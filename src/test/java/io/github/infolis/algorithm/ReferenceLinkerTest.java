@@ -17,6 +17,7 @@ import io.github.infolis.model.entity.EntityLink;
 import io.github.infolis.model.entity.InfolisFile;
 import io.github.infolis.infolink.querying.DaraHTMLQueryService;
 import io.github.infolis.infolink.querying.QueryService;
+//import io.github.infolis.util.SerializationUtils;
 
 /**
  * 
@@ -62,8 +63,13 @@ public class ReferenceLinkerTest extends InfolisBaseTest {
 		exec2.setSearchResultLinkerClass(MultiMatchesLinker.class);
 		exec2.instantiateAlgorithm(dataStoreClient, fileResolver).run();
 		linkUris = exec2.getLinks();
-	    assertEquals(4, linkUris.size());
+	    assertEquals(5, linkUris.size());
 	    List<EntityLink> links = dataStoreClient.get(EntityLink.class, linkUris);
+	    /*System.out.println(SerializationUtils.toJSON(links.get(0)));
+	    System.out.println(SerializationUtils.toJSON(links.get(1)));
+	    System.out.println(SerializationUtils.toJSON(links.get(2)));
+	    System.out.println(SerializationUtils.toJSON(links.get(3)));
+	    System.out.println(SerializationUtils.toJSON(links.get(4)));*/
 	    toEntity1 = dataStoreClient.get(Entity.class, links.get(1).getToEntity());
 	    toEntity2 = dataStoreClient.get(Entity.class, links.get(2).getToEntity());
 	    Entity toEntity3 = dataStoreClient.get(Entity.class, links.get(3).getToEntity());
@@ -93,7 +99,7 @@ public class ReferenceLinkerTest extends InfolisBaseTest {
 		exec4.setSearchResultLinkerClass(MultiMatchesLinker.class);
 		exec4.instantiateAlgorithm(dataStoreClient, fileResolver).run();
 		linkUris = exec4.getLinks();
-	    assertEquals(26, linkUris.size());
+	    assertEquals(28, linkUris.size());
 
 	    // tests for query cache
         Execution exec5 = new Execution();
