@@ -185,5 +185,9 @@ public class InfolisConfig {
     public static String getElasticSearchIndex() {
     	return INSTANCE.prop.getProperty("elasticSearchIndex");
     }
+
+    public static String getApiKey() {
+	return INSTANCE.prop.getProperty("apiKey");
+    }
     
 }
