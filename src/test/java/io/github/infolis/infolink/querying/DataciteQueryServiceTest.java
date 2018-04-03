@@ -2,7 +2,7 @@ package io.github.infolis.infolink.querying;
 
 import io.github.infolis.model.entity.Entity;
 import io.github.infolis.infolink.querying.QueryService.QueryField;
-import io.github.infolis.infolink.querying.QueryServiceTest.ExpectedOutput;
+import io.github.infolis.infolink.querying.ExpectedOutput;
 
 import java.net.MalformedURLException;
 import java.net.URL;

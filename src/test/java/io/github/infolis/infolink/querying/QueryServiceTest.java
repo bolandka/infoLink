@@ -7,6 +7,7 @@ import io.github.infolis.algorithm.SearchResultLinker;
 import io.github.infolis.model.Execution;
 import io.github.infolis.model.entity.Entity;
 import io.github.infolis.model.entity.SearchResult;
+import io.github.infolis.infolink.querying.ExpectedOutput;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -32,36 +33,6 @@ public class QueryServiceTest extends InfolisBaseTest {
 	
 	public QueryServiceTest() {
         expectedOutput = getExpectedOutput();
-	}
-	
-	static class ExpectedOutput {
-		QueryService queryService;
-		Entity entity;
-		Map<String, String> doiTitleMap;
-		Class<? extends SearchResultLinker> searchResulterLinkerClass;
-		
-		ExpectedOutput(QueryService queryService, Entity entity, Class<? extends SearchResultLinker> searchResultLinkerClass, Map<String, String> doiTitleMap) {
-			this.queryService = queryService;
-			this.entity = entity;
-			this.searchResulterLinkerClass = searchResultLinkerClass;
-			this.doiTitleMap = doiTitleMap;
-		}
-		
-		QueryService getQueryService() {
-			return this.queryService;
-		}
-		
-		Entity getEntity() {
-			return this.entity;
-		}
-		
-		Class<? extends SearchResultLinker> getSearchResultLinkerClass() {
-			return this.searchResulterLinkerClass;
-		}
-		
-		Map<String, String> getDoiTitleMap() {
-			return this.doiTitleMap;
-		}
 	}
 	
 	private static Set<ExpectedOutput> getExpectedOutput() {

@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.Arrays;
 
 import org.junit.Assert;
 import org.junit.Test;
@@ -14,7 +15,7 @@ import io.github.infolis.algorithm.SearchResultLinker;
 import io.github.infolis.algorithm.MultiMatchesLinker;
 import io.github.infolis.model.entity.Entity;
 import io.github.infolis.infolink.querying.QueryService.QueryField;
-import io.github.infolis.infolink.querying.QueryServiceTest.ExpectedOutput;
+import io.github.infolis.infolink.querying.ExpectedOutput;
 
 /**
  * 
@@ -62,6 +63,24 @@ public class DaraHTMLQueryServiceTest {
 
 		ExpectedOutput output = new ExpectedOutput(queryService, entity, searchResultLinkerClass, expectedDoiTitleMap);
 		expectedOutput.add(output);
+
+		QueryService queryService2 = new DaraHTMLQueryService();
+		queryService2.setMaxNumber(70);
+		Entity entity2 = new Entity();
+		entity2.setName("SOEP 2016");
+		entity2.setNumericInfo(Arrays.asList("2016"));
+		entity2.setYear("2016");
+	
+		Map<String, String> expectedDoiTitleMap2 = new HashMap<String, String>();
+		expectedDoiTitleMap2.put("10.5684/k2id-soep-2013-15/v1", "K²ID-SOEP extension study");	
+		expectedDoiTitleMap2.put("10.5684/soep.v33","Sozio-oekonomisches Panel (SOEP), Daten der Jahre 1984-2016");
+		expectedDoiTitleMap2.put("10.5684/soep.v33i","Sozio-oekonomisches Panel (SOEP), Daten der Jahre 1984-2016 (internationale Version)");
+		expectedDoiTitleMap2.put("10.7478/s0549.1.v1","SOEP-LEE Betriebsbefragung");
+		expectedDoiTitleMap2.put("10.5684/soep.v33.1","Sozio-oekonomisches Panel (SOEP), Daten der Jahre 1984-2016");
+		expectedDoiTitleMap2.put("10.5684/soep.v33.1i","Sozio-oekonomisches Panel (SOEP), Daten der Jahre 1984-2016 (internationale Version)");
+		ExpectedOutput output2 = new ExpectedOutput(queryService2, entity2, searchResultLinkerClass, expectedDoiTitleMap2);
+		expectedOutput.add(output2);
+
 		return expectedOutput;
 	}
 	

@@ -4,7 +4,8 @@ package io.github.infolis.infolink.querying;
 import io.github.infolis.model.entity.Entity;
 import io.github.infolis.model.entity.SearchResult;
 import io.github.infolis.util.InformationExtractor;
-import io.github.infolis.util.URLParamEncoder;
+//import io.github.infolis.util.URLParamEncoder;
+import java.net.URLEncoder;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -38,6 +39,8 @@ public class DaraSolrQueryService extends QueryService {
     public DaraSolrQueryService() {
         super("http://www.da-ra.de/solr/dara/", 0.8);
     }
+
+    private String encoding = "utf-8";
     
     private static final Logger log = LoggerFactory.getLogger(DaraSolrQueryService.class);
     
@@ -68,7 +71,7 @@ public class DaraSolrQueryService extends QueryService {
     	String doi = "";
     	if (this.getQueryStrategy().contains(QueryService.QueryField.title)) {
     		try {
-				title = URLParamEncoder.encode("\"" + ClientUtils.escapeQueryChars(entity.getName()) + "\"");
+				title = URLEncoder.encode("\"" + ClientUtils.escapeQueryChars(entity.getName()) + "\"", this.encoding);
 			} catch (UnsupportedEncodingException e) {
 				e.printStackTrace();
 				throw new IllegalArgumentException("Cannot encode \"" + title + "\"");
@@ -85,14 +88,14 @@ public class DaraSolrQueryService extends QueryService {
     		if (!title.isEmpty()) log.debug("Warning: both title and numericInfoInTitle strategies set. Using numericInfoInTitle"); 
             if(entity.getNumericInfo()!= null && entity.getNumericInfo().size()>0) {
             	try {
-					title = URLParamEncoder.encode("\"" + ClientUtils.escapeQueryChars(entity.getName()) + " " + ClientUtils.escapeQueryChars(entity.getNumericInfo().get(0)) + "\"");
+					title = URLEncoder.encode("\"" + ClientUtils.escapeQueryChars(entity.getName()) + " " + ClientUtils.escapeQueryChars(entity.getNumericInfo().get(0)) + "\"", this.encoding);
 				} catch (UnsupportedEncodingException e) {
 					e.printStackTrace();
 					throw new IllegalArgumentException("Cannot encode \"" + title + "\"");
 				}
             } else
 				try {
-					title = URLParamEncoder.encode("\"" + ClientUtils.escapeQueryChars(entity.getName()) + "\"");
+					title = URLEncoder.encode("\"" + ClientUtils.escapeQueryChars(entity.getName()) + "\"", this.encoding);
 				} catch (UnsupportedEncodingException e) {
 					e.printStackTrace();
 					throw new IllegalArgumentException("Cannot encode \"" + title + "\"");
