@@ -45,8 +45,8 @@ public class QueryServiceTest extends InfolisBaseTest {
 	
 	@Test
     public void testQueryService() throws IOException {
-    	Map<String, String> doiTitleMap = new HashMap<>();
         for (ExpectedOutput expectedOutputItem : expectedOutput) {
+		Map<String, String> doiTitleMap = new HashMap<>();
         	Entity entity = expectedOutputItem.getEntity();
         	dataStoreClient.post(Entity.class, entity);
         	QueryService queryService = expectedOutputItem.getQueryService();
