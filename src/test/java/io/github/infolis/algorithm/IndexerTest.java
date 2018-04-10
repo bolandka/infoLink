@@ -3,10 +3,12 @@ package io.github.infolis.algorithm;
 import static org.junit.Assert.assertEquals;
 import io.github.infolis.InfolisBaseTest;
 import io.github.infolis.model.Execution;
+import io.github.infolis.model.entity.EntityLink;
 import io.github.infolis.model.entity.InfolisFile;
 
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import org.apache.commons.io.IOUtils;
@@ -18,6 +20,7 @@ import org.slf4j.LoggerFactory;
 public class IndexerTest extends InfolisBaseTest {
 
 	Logger log = LoggerFactory.getLogger(IndexerTest.class);
+	private boolean string;
 
 	@Test
 	public void testIndexing() throws Exception {
