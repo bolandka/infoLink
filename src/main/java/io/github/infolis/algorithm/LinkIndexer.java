@@ -92,6 +92,19 @@ public class LinkIndexer extends ElasticIndexer {
 		return null;
 	}
 
+	protected JsonObject getJsonFromESIndex(String index, String query) {
+		HttpClient httpclient = HttpClients.createDefault();
+		HttpPost httppost = new HttpPost(index);
+		String answer = null;
+		try {
+			answer = post(httpclient, httppost, new StringEntity(query, ContentType.APPLICATION_JSON));
+		} catch (IOException e) { log.error(e.toString()); }
+		if (null == answer) return null;
+
+		log.trace(answer);
+		return Json.createReader(new StringReader(answer)).readObject();
+	}
+
 	private List<String> toJavaStringList(JsonArray jsonArray) {
 		List<String> list = new ArrayList<>();
 		for (int i=0; i<jsonArray.size(); i++) {
@@ -385,12 +398,13 @@ public class LinkIndexer extends ElasticIndexer {
 		return flattenedLinks;
 	}
 	
-	private List<EntityLink> flattenLinks(List<EntityLink> links) {
+	protected List<EntityLink> flattenLinks(List<EntityLink> links) {
 		List<EntityLink> flattenedLinks = new ArrayList<>();
 		Multimap<String, String> entityEntityMap = ArrayListMultimap.create();
 		Multimap<String, String> entitiesLinkMap = ArrayListMultimap.create();
 		for (EntityLink link : links) {
 			Entity fromEntity = getInputDataStoreClient().get(Entity.class, link.getFromEntity().replaceAll("http://.*/entity", "http://svkolodtest.gesis.intra/link-db/api/entity"));
+				
 			if (fromEntity.getTags().contains("infolis-ontology")) continue;
 			entityEntityMap.put(fromEntity.getUri(), link.getToEntity());
 			entitiesLinkMap.put(fromEntity.getUri()+link.getToEntity(), link.getUri());

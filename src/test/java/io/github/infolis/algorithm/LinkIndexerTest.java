@@ -1,6 +1,5 @@
 package io.github.infolis.algorithm;
 
-import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -9,7 +8,6 @@ import java.util.List;
 import javax.json.JsonObject;
 
 import org.junit.Test;
-import org.junit.Ignore;
 
 import io.github.infolis.InfolisBaseTest;
 import io.github.infolis.model.EntityType;
@@ -22,6 +20,7 @@ import io.github.infolis.model.entity.EntityLink.EntityRelation;
 public class LinkIndexerTest extends InfolisBaseTest {
 	
 	private String[] field;
+
 	@Test
 	public void test() {
 		Execution exec = new Execution(LinkIndexer.class);
@@ -67,22 +66,23 @@ public class LinkIndexerTest extends InfolisBaseTest {
 		//org.junit.Assert.assertEquals(, listetityLink.get(0).getEntityType());
 	}
 	
-	@Ignore
+	@Test
 	public void testSameAs() {
 		
 		// Ausgang: http://svkolodtest.gesis.intra/link-db/api/entityLink?q=fromEntity:ee0f4650-2e2b-11e8-a68c-895b49d4c31a
 		
 		Execution exec = new Execution(LinkIndexer.class);
 		
-		// Entity's: Entity e1 = new Entity();
 		Entity[] entityList = new Entity[7];
 		
+		for ( int i = 0; i < 7; i++ ) entityList[i] = new Entity();
+
 		entityList[0].setIdentifiers(Arrays.asList("ee0f4650-2e2b-11e8-a68c-895b49d4c31a"));
 		entityList[0].setAuthors(Arrays.asList("Haun,Dietmar","Haun,Dietmar"));
 		entityList[0].setEntityProvenance("ALLBUS Bibliographie");
 		entityList[0].setEntityReliability(5.0E-1); //?
 		entityList[0].setEntityType(EntityType.publication);
-		entityList[0].setEntityView("Müller,Walter, Haun,Dietmar (1994). Bildungsungleichheit im sozialen Wandel");
+		entityList[0].setEntityView("MÃ¼ller,Walter, Haun,Dietmar (1994). Bildungsungleichheit im sozialen Wandel");
 		entityList[0].setLanguage("de");
 		entityList[0].setName("Bildungsungleichheit im sozialen Wandel");
 		entityList[0].setPublicationStatus("IN FILE");
@@ -138,39 +138,35 @@ public class LinkIndexerTest extends InfolisBaseTest {
 		entityList[6].setName("Mikrozensus");
 		entityList[6].setNumericInfo(Arrays.asList("1971"));
 		
-		for ( int eLc = 1; eLc <= 7; eLc++ )
-		{	
-			dataStoreClient.post(Entity.class, entityList[eLc]);
-		}
-		
-		// TextualReferece's: TextualReference ref = new TextualReference();
+		dataStoreClient.post(Entity.class, Arrays.asList(entityList));
+
 		TextualReference[] refList = new TextualReference[3];
 				
-		refList[0].setUri("http://svkolodtest.gesis.intra/link-db/api/textualReference/ff807440-2e2b-11e8-a68c-895b49d4c31a");
-		refList[0].setLeftText("Im Unterschied zu der in der Literatur weithin verbreiteten These konstanter Ungleichheiten zeigt dieser Beitrag, dass seit der Zwischenkriegszeit und den ersten Nachkriegsjahren die Unterschiede zwischen den verschiedenen Bevölkerungsgruppen in der Bildungsbeteiligung und in den erworbenen Bildungsabschlüssen deutlich kleiner geworden sind. Die Analyse sukzessiver Übergänge zwischen den verschiedenen Stufen des Bildungswesens belegt, dass die Ungleichheit insbesondere durch den Abbau der sozialen Beteiligungsdifferentiale beim Übergang zu den weiterführenden Schulen und beim Erwerb der Mittleren Reife geringer geworden ist. Als Folge haben aber auch die Ungleichheiten beim Erwerb des Abiturs und von Hochschulabschlüssen abgenommen. Die Ungleichheitsreduktion ist unterschiedlich stark nach unterschiedlichen Ungleichheitsdimensionen, und sie variiert in unterschiedlichen Phasen der Nachkriegsentwicklung. Aus der Konstellation der Befunde werden spezifische Hypothesen zur Erklärung des Ungleichheitsabbaus diskutiert. Datenbasis der Analysen sind die kumulierten ALLBUS-Befragungen 1980-1992, das Sozioökonomische Panel 1986 und der Mikrozensus 1971");
+		for (int i = 0; i < 3; i++) refList[i] = new TextualReference();
+
+		//refList[0].setUri("http://svkolodtest.gesis.intra/link-db/api/textualReference/ff807440-2e2b-11e8-a68c-895b49d4c31a");
+		refList[0].setLeftText("Im Unterschied zu der in der Literatur weithin verbreiteten These konstanter Ungleichheiten zeigt dieser Beitrag, dass seit der Zwischenkriegszeit und den ersten Nachkriegsjahren die Unterschiede zwischen den verschiedenen BevÙlkerungsgruppen in der Bildungsbeteiligung und in den erworbenen BildungsabschlÃ¼ssen deutlich kleiner geworden sind. Die Analyse sukzessiver Ù€bergÙ†nge zwischen den verschiedenen Stufen des Bildungswesens belegt, dass die Ungleichheit insbesondere durch den Abbau der sozialen Beteiligungsdifferentiale beim Ù€bergang zu den weiterfÃ¼hrenden Schulen und beim Erwerb der Mittleren Reife geringer geworden ist. Als Folge haben aber auch die Ungleichheiten beim Erwerb des Abiturs und von HochschulabschlÃ¼ssen abgenommen. Die Ungleichheitsreduktion ist unterschiedlich stark nach unterschiedlichen Ungleichheitsdimensionen, und sie variiert in unterschiedlichen Phasen der Nachkriegsentwicklung. Aus der Konstellation der Befunde werden spezifische Hypothesen zur ErklÙ†rung des Ungleichheitsabbaus diskutiert. Datenbasis der Analysen sind die kumulierten ALLBUS-Befragungen 1980-1992, das SozioÙkonomische Panel 1986 und der Mikrozensus 1971");
 		refList[0].setRightText("");
 		refList[0].setReference("reference");
 		refList[0].setReferenceReliability(0);
 		
-		refList[1].setUri("http://svkolodtest.gesis.intra/link-db/api/textualReference/fd000af0-2e2b-11e8-b934-a5c326a21c9e");
-		refList[1].setLeftText("Im Unterschied zu der in der Literatur weithin verbreiteten These konstanter Ungleichheiten zeigt dieser Beitrag, dass seit der Zwischenkriegszeit und den ersten Nachkriegsjahren die Unterschiede zwischen den verschiedenen Bevölkerungsgruppen in der Bildungsbeteiligung und in den erworbenen Bildungsabschlüssen deutlich kleiner geworden sind. Die Analyse sukzessiver Übergänge zwischen den verschiedenen Stufen des Bildungswesens belegt, dass die Ungleichheit insbesondere durch den Abbau der sozialen Beteiligungsdifferentiale beim Übergang zu den weiterführenden Schulen und beim Erwerb der Mittleren Reife geringer geworden ist. Als Folge haben aber auch die Ungleichheiten beim Erwerb des Abiturs und von Hochschulabschlüssen abgenommen. Die Ungleichheitsreduktion ist unterschiedlich stark nach unterschiedlichen Ungleichheitsdimensionen, und sie variiert in unterschiedlichen Phasen der Nachkriegsentwicklung. Aus der Konstellation der Befunde werden spezifische Hypothesen zur Erklärung des Ungleichheitsabbaus diskutiert. Datenbasis der Analysen sind die kumulierten ALLBUS-Befragungen 1980-1992, das Sozioökonomische Panel 1986 und der Mikrozensus 1971");
+		//refList[1].setUri("http://svkolodtest.gesis.intra/link-db/api/textualReference/fd000af0-2e2b-11e8-b934-a5c326a21c9e");
+		refList[1].setLeftText("Im Unterschied zu der in der Literatur weithin verbreiteten These konstanter Ungleichheiten zeigt dieser Beitrag, dass seit der Zwischenkriegszeit und den ersten Nachkriegsjahren die Unterschiede zwischen den verschiedenen BevÙlkerungsgruppen in der Bildungsbeteiligung und in den erworbenen BildungsabschlÃ¼ssen deutlich kleiner geworden sind. Die Analyse sukzessiver Ù€bergÙ†nge zwischen den verschiedenen Stufen des Bildungswesens belegt, dass die Ungleichheit insbesondere durch den Abbau der sozialen Beteiligungsdifferentiale beim Ù€bergang zu den weiterfÃ¼hrenden Schulen und beim Erwerb der Mittleren Reife geringer geworden ist. Als Folge haben aber auch die Ungleichheiten beim Erwerb des Abiturs und von HochschulabschlÃ¼ssen abgenommen. Die Ungleichheitsreduktion ist unterschiedlich stark nach unterschiedlichen Ungleichheitsdimensionen, und sie variiert in unterschiedlichen Phasen der Nachkriegsentwicklung. Aus der Konstellation der Befunde werden spezifische Hypothesen zur ErklÙ†rung des Ungleichheitsabbaus diskutiert. Datenbasis der Analysen sind die kumulierten ALLBUS-Befragungen 1980-1992, das SozioÙkonomische Panel 1986 und der Mikrozensus 1971");
 		refList[1].setRightText("");
 		refList[1].setReference("reference");
 		refList[1].setReferenceReliability(0);
 				
-		refList[2].setUri("http://svkolodtest.gesis.intra/link-db/api/textualReference/fd6646d0-2e2b-11e8-b934-a5c326a21c9e");
-		refList[2].setLeftText("Im Unterschied zu der in der Literatur weithin verbreiteten These konstanter Ungleichheiten zeigt dieser Beitrag, dass seit der Zwischenkriegszeit und den ersten Nachkriegsjahren die Unterschiede zwischen den verschiedenen Bevölkerungsgruppen in der Bildungsbeteiligung und in den erworbenen Bildungsabschlüssen deutlich kleiner geworden sind. Die Analyse sukzessiver Übergänge zwischen den verschiedenen Stufen des Bildungswesens belegt, dass die Ungleichheit insbesondere durch den Abbau der sozialen Beteiligungsdifferentiale beim Übergang zu den weiterführenden Schulen und beim Erwerb der Mittleren Reife geringer geworden ist. Als Folge haben aber auch die Ungleichheiten beim Erwerb des Abiturs und von Hochschulabschlüssen abgenommen. Die Ungleichheitsreduktion ist unterschiedlich stark nach unterschiedlichen Ungleichheitsdimensionen, und sie variiert in unterschiedlichen Phasen der Nachkriegsentwicklung. Aus der Konstellation der Befunde werden spezifische Hypothesen zur Erklärung des Ungleichheitsabbaus diskutiert. Datenbasis der Analysen sind die kumulierten ALLBUS-Befragungen 1980-1992, das Sozioökonomische Panel 1986 und der ");
+		//refList[2].setUri("http://svkolodtest.gesis.intra/link-db/api/textualReference/fd6646d0-2e2b-11e8-b934-a5c326a21c9e");
+		refList[2].setLeftText("Im Unterschied zu der in der Literatur weithin verbreiteten These konstanter Ungleichheiten zeigt dieser Beitrag, dass seit der Zwischenkriegszeit und den ersten Nachkriegsjahren die Unterschiede zwischen den verschiedenen BevÙlkerungsgruppen in der Bildungsbeteiligung und in den erworbenen BildungsabschlÃ¼ssen deutlich kleiner geworden sind. Die Analyse sukzessiver Ù€bergÙ†nge zwischen den verschiedenen Stufen des Bildungswesens belegt, dass die Ungleichheit insbesondere durch den Abbau der sozialen Beteiligungsdifferentiale beim Ù€bergang zu den weiterfÃ¼hrenden Schulen und beim Erwerb der Mittleren Reife geringer geworden ist. Als Folge haben aber auch die Ungleichheiten beim Erwerb des Abiturs und von HochschulabschlÃ¼ssen abgenommen. Die Ungleichheitsreduktion ist unterschiedlich stark nach unterschiedlichen Ungleichheitsdimensionen, und sie variiert in unterschiedlichen Phasen der Nachkriegsentwicklung. Aus der Konstellation der Befunde werden spezifische Hypothesen zur ErklÙ†rung des Ungleichheitsabbaus diskutiert. Datenbasis der Analysen sind die kumulierten ALLBUS-Befragungen 1980-1992, das SozioÙkonomische Panel 1986 und der ");
 		refList[2].setRightText("");
 		refList[2].setReference("Mikrozensus 1971");
 		refList[2].setReferenceReliability(0);
 		
-		for ( int rLc = 1; rLc <= 7; rLc++ )
-		{	
-			dataStoreClient.post(TextualReference.class, refList[rLc]);
-		}
+		dataStoreClient.post(TextualReference.class, Arrays.asList(refList));
 				
-		// EntityLink's: EntityLink l1 = new EntityLink();
-		EntityLink[] entityLinkList = new EntityLink[7];
+		EntityLink[] entityLinkList = new EntityLink[6];
+		
+		for (int i = 0; i < 6; i++) entityLinkList[i] = new EntityLink();
 		
 		entityLinkList[0].setConfidence(1);
 		entityLinkList[0].setEntityRelations(new HashSet<>(Arrays.asList(EntityRelation.references))); // ? wieso so setzen?
@@ -214,24 +210,21 @@ public class LinkIndexerTest extends InfolisBaseTest {
 		entityLinkList[5].setProvenance("ALLBUS Bibliographie");
 		entityLinkList[5].setToEntity(entityList[6].getUri());
 		
-		for ( int eLLc = 1; eLLc <= 7; eLLc++ )
-		{	
-			dataStoreClient.post(EntityLink.class, entityLinkList[eLLc]);
-		}
+		dataStoreClient.post(EntityLink.class, Arrays.asList(entityLinkList));
 		 
-		List<String> links = Arrays.asList(entityLinkList[0].getUri(), entityLinkList[1].getUri(), entityLinkList[2].getUri(), entityLinkList[3].getUri(), entityLinkList[4].getUri(), entityLinkList[5].getUri());
-		exec.setLinks(links);
-		exec.instantiateAlgorithm(dataStoreClient, fileResolver).run();
+		//List<String> links = Arrays.asList(entityLinkList[0].getUri(), entityLinkList[1].getUri(), entityLinkList[2].getUri(), entityLinkList[3].getUri(), entityLinkList[4].getUri(), entityLinkList[5].getUri());
+		//exec.setLinks(links);
 		
 		// TODO tests
 		LinkIndexer indexer = new LinkIndexer(dataStoreClient, dataStoreClient, fileResolver, fileResolver);
 		indexer.setExecution(exec);
-		//List<EntityLink> listetityLink = indexer.flattenLinks(Arrays.asList(link1,link2));
+		List<EntityLink> listetityLink = indexer.flattenLinks(Arrays.asList(entityLinkList));
 		//org.junit.Assert.assertEquals(1,listetityLink.size());
 		//org.junit.Assert.assertEquals(, listetityLink.get(0).getEntityType());
 		
 	}
 	
+	//TODO move below tests to different class and package
 	@Test
 	public void TestIndexedQualityTotalPerType() throws Exception {
 		// Set queryFields: 
