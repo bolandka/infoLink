@@ -1,6 +1,5 @@
 package io.github.infolis.algorithm;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -9,7 +8,6 @@ import javax.json.JsonObject;
 
 import org.junit.Test;
 
-import bsh.org.objectweb.asm.Type;
 import io.github.infolis.InfolisBaseTest;
 import io.github.infolis.model.EntityType;
 import io.github.infolis.model.Execution;
@@ -20,8 +18,6 @@ import io.github.infolis.model.entity.EntityLink.EntityRelation;
 
 public class LinkIndexerTest extends InfolisBaseTest {
 	
-	private String[] field;
-
 	@Test
 	public void test() {
 		Execution exec = new Execution(LinkIndexer.class);
@@ -722,7 +718,7 @@ public class LinkIndexerTest extends InfolisBaseTest {
 		// TODO tests
 		LinkIndexer indexer = new LinkIndexer(dataStoreClient, dataStoreClient, fileResolver, fileResolver);
 		indexer.setExecution(exec);
-		List<EntityLink> listetityLink = indexer.flattenLinks(Arrays.asList(entityLinkList));
+		//List<EntityLink> listetityLink = indexer.flattenLinks(Arrays.asList(entityLinkList));
 		//org.junit.Assert.assertEquals(1,listetityLink.size());
 		//org.junit.Assert.assertEquals(, listetityLink.get(0).getEntityType());
 		
@@ -744,7 +740,7 @@ public class LinkIndexerTest extends InfolisBaseTest {
 
 		
 		// Build queryStrings
-		ArrayList<String> queryStrings = new ArrayList<String>();
+		//ArrayList<String> queryStrings = new ArrayList<String>();
 		for ( String field: queryFields )
 		{			
 			//queryStrings.add("{\r  \"query\": {\r    \"bool\": {\r      \"must\": [\r         {\r          \"query_string\": {\r                \"default_field\" : \"entityType\",\r            \"query\": \""+field+"\"\r          }\r         }\r      ],\r      \"must_not\": [],\r      \"should\": []\r    }\r  }\r}\r");
