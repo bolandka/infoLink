@@ -2,12 +2,16 @@ package io.github.infolis.algorithm;
 
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.Set;
 import java.util.List;
 
 import javax.json.JsonObject;
 
 import org.junit.Test;
+import org.junit.Rule;
 import static org.junit.Assert.assertEquals;
+import static org.hamcrest.Matchers.equalTo;
+import org.junit.rules.ErrorCollector;
 
 import io.github.infolis.InfolisBaseTest;
 import io.github.infolis.model.EntityType;
@@ -20,6 +24,9 @@ import io.github.infolis.util.SerializationUtils;
 
 public class LinkIndexerTest extends InfolisBaseTest {
 	
+	@Rule
+	public ErrorCollector collector = new ErrorCollector();
+
 	@Test
 	public void test_simple() {
 		Execution exec = new Execution(LinkIndexer.class);
@@ -728,17 +735,53 @@ LinkIndexer indexer = new LinkIndexer(dataStoreClient, dataStoreClient, fileReso
 		
 		dataStoreClient.post(EntityLink.class, Arrays.asList(entityLinkList));
 		
-		// TODO tests
 		LinkIndexer indexer = new LinkIndexer(dataStoreClient, dataStoreClient, fileResolver, fileResolver);
 		indexer.setExecution(exec);
 		List<EntityLink> flattenedLinks = indexer.flattenLinks(Arrays.asList(entityLinkList));
+
 		for (EntityLink link : flattenedLinks) {
-			System.out.println("created link:");
+			System.out.println("\ncreated link:");
 			System.out.println(SerializationUtils.toJSON(link));
 		}
-		//org.junit.Assert.assertEquals(1,listetityLink.size());
-		//org.junit.Assert.assertEquals(, listetityLink.get(0).getEntityType());
+		// 5 links from publication to cited data
+		// 30 links form publication to dataset
+		//    (because the 6th cited data entity 
+		//    is linked to 30 dataset entities)
+		collector.checkThat(flattenedLinks.size(), equalTo(35));
 		
+		Set<String> foundConnections = new HashSet<>();
+		Set<String> expectedConnections = new HashSet<>();
+		String publicationName = entityList[0].getName();
+		expectedConnections.add(publicationName + " --> " + entityList[1].getDoi());
+		expectedConnections.add(publicationName + " --> " + entityList[3].getDoi());
+		expectedConnections.add(publicationName + " --> " + entityList[4].getDoi());
+		expectedConnections.add(publicationName + " --> " + entityList[5].getDoi());
+		expectedConnections.add(publicationName + " --> " + entityList[6].getDoi());
+		
+		for (int i = 7; i < 30; i++) {
+			expectedConnections.add(entityList[2].getName() + " --> " + entityList[i].getDoi());
+		}
+
+		for (int i = 0; i < flattenedLinks.size(); i++) {
+			foundConnections.add(dataStoreClient.get(
+				Entity.class, flattenedLinks.get(i)
+					.getFromEntity())
+					.getName()
+				+ " --> " 
+				+ dataStoreClient.get(
+				Entity.class, flattenedLinks.get(i)
+					.getToEntity())
+					.getDoi());
+		}
+
+		
+		Set<String> missingConnections = new HashSet<>(expectedConnections);
+		missingConnections.removeAll(foundConnections);
+		Set<String> superfluousConnections = new HashSet<>(foundConnections);
+		superfluousConnections.removeAll(expectedConnections);
+		//collector.checkThat(foundConnections, equalTo(expectedConnections));
+		collector.checkThat(missingConnections, equalTo(new HashSet<String>()));
+		collector.checkThat(superfluousConnections, equalTo(new HashSet<String>()));
 	}
 	
 	//TODO move below tests to different class and package
