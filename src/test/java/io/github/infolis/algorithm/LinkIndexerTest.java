@@ -8,6 +8,7 @@ import java.util.List;
 import javax.json.JsonObject;
 
 import org.junit.Test;
+import org.junit.Before;
 import org.junit.Rule;
 import static org.junit.Assert.assertEquals;
 import static org.hamcrest.Matchers.equalTo;
@@ -20,10 +21,18 @@ import io.github.infolis.model.TextualReference;
 import io.github.infolis.model.entity.Entity;
 import io.github.infolis.model.entity.EntityLink;
 import io.github.infolis.model.entity.EntityLink.EntityRelation;
-import io.github.infolis.util.SerializationUtils;
+//import io.github.infolis.util.SerializationUtils;
 
 public class LinkIndexerTest extends InfolisBaseTest {
+
+	Entity[] entityList = new Entity[37];
+	EntityLink[] entityLinkList = new EntityLink[36];
+	TextualReference[] refList = new TextualReference[3];
 	
+	List<EntityLink> flattenedLinks;
+	Set<String> foundConnections = new HashSet<>();
+	Set<String> expectedConnections = new HashSet<>();
+
 	@Rule
 	public ErrorCollector collector = new ErrorCollector();
 
@@ -79,15 +88,14 @@ LinkIndexer indexer = new LinkIndexer(dataStoreClient, dataStoreClient, fileReso
 		// TODO check confidence value
 	}
 	
-	@Test
-	//public void testSameAs() {
-	public void test_real_data() {
+	// TODO add test cases for data containing same-as links
+	@Before
+	public void create_realistic_test_data() {
 		
 		// Ausgang: http://svkolodtest.gesis.intra/link-db/api/entityLink?q=fromEntity:ee0f4650-2e2b-11e8-a68c-895b49d4c31a
 		
 		Execution exec = new Execution(LinkIndexer.class);
 		
-		Entity[] entityList = new Entity[37];
 		
 		for ( int i = 0; i < 37; i++ ) entityList[i] = new Entity();
 
@@ -448,8 +456,6 @@ LinkIndexer indexer = new LinkIndexer(dataStoreClient, dataStoreClient, fileReso
 	
 		dataStoreClient.post(Entity.class, Arrays.asList(entityList));
 
-		TextualReference[] refList = new TextualReference[3];
-				
 		for (int i = 0; i < 3; i++) refList[i] = new TextualReference();
 
 		//refList[0].setUri("http://svkolodtest.gesis.intra/link-db/api/textualReference/ff807440-2e2b-11e8-a68c-895b49d4c31a");
@@ -472,9 +478,7 @@ LinkIndexer indexer = new LinkIndexer(dataStoreClient, dataStoreClient, fileReso
 		
 		dataStoreClient.post(TextualReference.class, Arrays.asList(refList));
 				
-		EntityLink[] entityLinkList = new EntityLink[35];
-		
-		for (int i = 0; i < 35; i++) entityLinkList[i] = new EntityLink();
+		for (int i = 0; i < 36; i++) entityLinkList[i] = new EntityLink();
 		
 		// textualReference/ff807440-2e2b-11e8-a68c-895b49d4c31a
 		entityLinkList[0].setConfidence(1);
@@ -726,31 +730,23 @@ LinkIndexer indexer = new LinkIndexer(dataStoreClient, dataStoreClient, fileReso
 		entityLinkList[34].setProvenance("InfoLink");
 		entityLinkList[34].setToEntity(entityList[29].getUri());
 		// *Kopie 25
-		entityLinkList[34].setConfidence(0.9);
-		entityLinkList[34].setEntityRelations(new HashSet<>(Arrays.asList(EntityRelation.part_of_temporal))); 
-		entityLinkList[34].setFromEntity(entityList[2].getUri());
-		entityLinkList[34].setLinkReason("");
-		entityLinkList[34].setProvenance("InfoLink");
-		entityLinkList[34].setToEntity(entityList[25].getUri());
+		entityLinkList[35].setConfidence(0.9);
+		entityLinkList[35].setEntityRelations(new HashSet<>(Arrays.asList(EntityRelation.part_of_temporal))); 
+		entityLinkList[35].setFromEntity(entityList[2].getUri());
+		entityLinkList[35].setLinkReason("");
+		entityLinkList[35].setProvenance("InfoLink");
+		entityLinkList[35].setToEntity(entityList[25].getUri());
 		
 		dataStoreClient.post(EntityLink.class, Arrays.asList(entityLinkList));
 		
 		LinkIndexer indexer = new LinkIndexer(dataStoreClient, dataStoreClient, fileResolver, fileResolver);
 		indexer.setExecution(exec);
-		List<EntityLink> flattenedLinks = indexer.flattenLinks(Arrays.asList(entityLinkList));
-
-		for (EntityLink link : flattenedLinks) {
+		this.flattenedLinks = indexer.flattenLinks(Arrays.asList(entityLinkList));
+		/*for (EntityLink link : flattenedLinks) {
 			System.out.println("\ncreated link:");
 			System.out.println(SerializationUtils.toJSON(link));
-		}
-		// 5 links from publication to cited data
-		// 30 links form publication to dataset
-		//    (because the 6th cited data entity 
-		//    is linked to 30 dataset entities)
-		collector.checkThat(flattenedLinks.size(), equalTo(35));
-		
-		Set<String> foundConnections = new HashSet<>();
-		Set<String> expectedConnections = new HashSet<>();
+		}*/
+
 		String publicationName = entityList[0].getName();
 		expectedConnections.add(publicationName + " --> " + entityList[1].getDoi());
 		expectedConnections.add(publicationName + " --> " + entityList[3].getDoi());
@@ -759,7 +755,7 @@ LinkIndexer indexer = new LinkIndexer(dataStoreClient, dataStoreClient, fileReso
 		expectedConnections.add(publicationName + " --> " + entityList[6].getDoi());
 		
 		for (int i = 7; i < 30; i++) {
-			expectedConnections.add(entityList[2].getName() + " --> " + entityList[i].getDoi());
+			expectedConnections.add(publicationName + " --> " + entityList[i].getDoi());
 		}
 
 		for (int i = 0; i < flattenedLinks.size(); i++) {
@@ -774,15 +770,45 @@ LinkIndexer indexer = new LinkIndexer(dataStoreClient, dataStoreClient, fileReso
 					.getDoi());
 		}
 
-		
-		Set<String> missingConnections = new HashSet<>(expectedConnections);
-		missingConnections.removeAll(foundConnections);
+	}
+
+	@Test
+	public void is_precise() {
 		Set<String> superfluousConnections = new HashSet<>(foundConnections);
 		superfluousConnections.removeAll(expectedConnections);
-		//collector.checkThat(foundConnections, equalTo(expectedConnections));
-		collector.checkThat(missingConnections, equalTo(new HashSet<String>()));
+
 		collector.checkThat(superfluousConnections, equalTo(new HashSet<String>()));
 	}
+
+	@Test
+	public void is_complete() {		
+		Set<String> missingConnections = new HashSet<>(expectedConnections);
+		missingConnections.removeAll(foundConnections);
+		collector.checkThat(missingConnections, equalTo(new HashSet<String>()));
+	}
+
+	@Test
+	public void is_duplicate_free() {
+		// the other tests use sets -> duplicates are not taken into account there
+		collector.checkThat(flattenedLinks.size(), equalTo(35));
+	}
+
+	//TODO check that values are correct (linkReason and other fields)
+	@Test
+	public void is_exact() {
+		// 5 links from publication to cited data
+		// 30 links form publication to dataset
+		//    (because the 6th cited data entity 
+		//    is linked to 30 dataset entities)
+		Set<String> foundAndCorrectConnections = new HashSet<>(expectedConnections);
+		foundAndCorrectConnections.retainAll(foundConnections);
+		// how many correct connections have been created?
+		collector.checkThat(foundAndCorrectConnections.size(), equalTo(expectedConnections.size()));
+		collector.checkThat(foundAndCorrectConnections, equalTo(expectedConnections));
+		collector.checkThat(foundConnections, equalTo(expectedConnections));
+	}
+
+	//TODO check transformation into ElasticLink
 	
 	//TODO move below tests to different class and package
 	//@Test
