@@ -7,6 +7,7 @@ import java.util.List;
 import javax.json.JsonObject;
 
 import org.junit.Test;
+import static org.junit.Assert.assertEquals;
 
 import io.github.infolis.InfolisBaseTest;
 import io.github.infolis.model.EntityType;
@@ -54,14 +55,21 @@ public class LinkIndexerTest extends InfolisBaseTest {
 		dataStoreClient.post(EntityLink.class, link1);
 		dataStoreClient.post(EntityLink.class, link2);
 		List<String> links = Arrays.asList(link1.getUri(), link2.getUri());
-		exec.setLinks(links);
-		exec.instantiateAlgorithm(dataStoreClient, fileResolver).run();
-		// TODO tests
-		LinkIndexer indexer = new LinkIndexer(dataStoreClient, dataStoreClient, fileResolver, fileResolver);
+		
+LinkIndexer indexer = new LinkIndexer(dataStoreClient, dataStoreClient, fileResolver, fileResolver);
 		indexer.setExecution(exec);
 		List<EntityLink> flattenedLinks = indexer.flattenLinks(Arrays.asList(link1,link2));
-		org.junit.Assert.assertEquals(1, flattenedLinks.size());
-		//org.junit.Assert.assertEquals(, listetityLink.get(0).getEntityType());
+		assertEquals(1, flattenedLinks.size());
+
+		Entity fromEntity = dataStoreClient.get(Entity.class, flattenedLinks.get(0).getFromEntity());
+		Entity toEntity = dataStoreClient.get(Entity.class, flattenedLinks.get(0).getToEntity());
+
+		assertEquals(EntityType.publication, fromEntity.getEntityType());
+		assertEquals(EntityType.dataset, toEntity.getEntityType());
+		assertEquals(ref.getUri(), flattenedLinks.get(0).getLinkReason());
+		assertEquals(entity1.getIdentifiers(), fromEntity.getIdentifiers());
+		assertEquals(entity3.getIdentifiers(), toEntity.getIdentifiers());
+		// TODO check confidence value
 	}
 	
 	@Test
@@ -724,7 +732,7 @@ public class LinkIndexerTest extends InfolisBaseTest {
 		LinkIndexer indexer = new LinkIndexer(dataStoreClient, dataStoreClient, fileResolver, fileResolver);
 		indexer.setExecution(exec);
 		List<EntityLink> flattenedLinks = indexer.flattenLinks(Arrays.asList(entityLinkList));
-		for (ElasticLink link : flattenedLinks) {
+		for (EntityLink link : flattenedLinks) {
 			System.out.println("created link:");
 			System.out.println(SerializationUtils.toJSON(link));
 		}
