@@ -6,11 +6,12 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.Collection;
 import java.util.StringJoiner;
+import java.util.stream.Collectors;
+import java.util.Arrays;
 
 import java.io.StringReader;
-import java.util.Arrays;
-import java.util.stream.Collectors;
 import javax.json.Json;
 import javax.json.JsonArray;
 import javax.json.JsonObject;
@@ -42,7 +43,7 @@ import io.github.infolis.util.SerializationUtils;
 public class LinkIndexer extends ElasticIndexer {
 
 	private static final Logger log = LoggerFactory.getLogger(LinkIndexer.class);
-	
+
 	public LinkIndexer(DataStoreClient inputDataStoreClient, DataStoreClient outputDataStoreClient,
 			FileResolver inputFileResolver, FileResolver outputFileResolver) {
 		super(inputDataStoreClient, outputDataStoreClient, inputFileResolver, outputFileResolver);
@@ -300,110 +301,121 @@ public class LinkIndexer extends ElasticIndexer {
 	
 	// end of importer's methods
 
-	private List<EntityLink> getFlattenedLinksForEntity(
-			Multimap<String, String> entityEntityMap, 
-			Multimap<String, String> entitiesLinkMap,
-			String startEntityUri, Multimap<String, String> toEntities, 
-			List<EntityLink> processedLinks) {
-		List<EntityLink> flattenedLinks = new ArrayList<>();
-		for (Map.Entry<String, String> entry : toEntities.entries()) {
-			Entity toEntity = getInputDataStoreClient().get(Entity.class, entry.getKey().replaceAll("http://.*/entity", "http://svkolodtest.gesis.intra/link-db/api/entity"));
-			EntityLink link = getInputDataStoreClient().get(EntityLink.class, entry.getValue().replaceAll("http://.*/entityLink", "http://svkolodtest.gesis.intra/link-db/api/entityLink"));
-			
-			Multimap<String, String> newToEntities = ArrayListMultimap.create();
-			for (String toEntityUri : entityEntityMap.get(toEntity.getUri())) {
-				newToEntities.putAll(toEntityUri, entitiesLinkMap.get(toEntity.getUri() + toEntityUri));
-			}
-			if ((!toEntity.getEntityType().equals(EntityType.citedData)) || newToEntities.isEmpty()) {
-
-				EntityLink directLink = new EntityLink();
-				directLink.setFromEntity(startEntityUri);
-				directLink.setToEntity(link.getToEntity());
-				directLink.setEntityRelations(link.getEntityRelations());
-				// set cited data as link view
-				if (!toEntity.getEntityType().equals(EntityType.citedData)) {
-					Entity fromEntity = getInputDataStoreClient().get(Entity.class, link.getFromEntity().replaceAll("http://.*/entity", "http://svkolodtest.gesis.intra/link-db/api/entity"));
-					StringJoiner linkView = new StringJoiner(" ");
-					//TODO check
-					if (fromEntity.getEntityType().equals(EntityType.citedData)) {
-						// hack for infolis links
-						if (null == fromEntity.getEntityView() || fromEntity.getEntityView().isEmpty()) {
-							linkView.add(fromEntity.getName());
-							for (String number : fromEntity.getNumericInfo()) linkView.add(number);
-							fromEntity.setEntityView(linkView.toString());
-							getOutputDataStoreClient().put(Entity.class, fromEntity, fromEntity.getUri());
-						}
-					}
-					directLink.setLinkView(fromEntity.getEntityView());
-				} else {
-					StringJoiner linkView = new StringJoiner(" ");
-
-					// set link view for infolisLinks
-					if (null == toEntity.getEntityView() || toEntity.getEntityView().isEmpty()) {
-						linkView.add(toEntity.getName());
-						if (null != toEntity.getNumericInfo() && !toEntity.getNumericInfo().isEmpty()) {
-							for (String number : toEntity.getNumericInfo()) linkView.add(number);
-						}
-						toEntity.setEntityView(linkView.toString());
-						getOutputDataStoreClient().put(Entity.class, toEntity, toEntity.getUri());
-					} 
-					directLink.setLinkView(toEntity.getEntityView());
-				}
-				directLink.setTags(link.getTags());
-				
-				int intermediateLinks = processedLinks.size();
-				String linkReason = null;
-				List<String> linkReasons = new ArrayList<>();
-				if (null != link.getLinkReason() && !link.getLinkReason().isEmpty()) {
-					linkReason = link.getLinkReason().replaceAll("http://.*/textualReference", "http://svkolodtest.gesis.intra/link-db/api/textualReference");
-					linkReasons.add(linkReason);
-				}
-				double confidenceSum = 0;
-				Set<String> provenance = new HashSet<>();
-				for (EntityLink intermediateLink : processedLinks) {
-					confidenceSum += intermediateLink.getConfidence();
-					if (null != intermediateLink.getLinkReason()) {
-						linkReason = intermediateLink.getLinkReason().replaceAll("http://.*/textualReference", "http://svkolodtest.gesis.intra/link-db/api/textualReference");
-						linkReasons.add(linkReason);
-					}
-					directLink.addAllTags(intermediateLink.getTags());
-					for (EntityRelation relation : intermediateLink.getEntityRelations()) {
-						if (!relation.equals(EntityRelation.same_as)) directLink.addEntityRelation(relation);
-					}
-					// provenance entries of intermediate links do not have to be equal - e.g. manually specified cited data may have been linked to datasets automatically
-					if (null != intermediateLink.getProvenance() && !intermediateLink.getProvenance().isEmpty()) provenance.add(intermediateLink.getProvenance());
-				}
-				confidenceSum += link.getConfidence();
-				intermediateLinks += 1;
-				directLink.setConfidence(confidenceSum / intermediateLinks);
-				directLink.setLinkReason(linkReasons.stream().collect(Collectors.joining("@@@")));
-				log.debug("reference: " + linkReason);
-						
-				if (null != link.getProvenance() && !link.getProvenance().isEmpty()) provenance.add(link.getProvenance());
-				if (null == provenance || provenance.isEmpty()) directLink.setProvenance("InfoLink");
-				else directLink.setProvenance(String.join(" + ", provenance));
-						
-				directLink.addAllTags(getExecution().getTags());
-				log.debug("flattenedLink: " + SerializationUtils.toJSON(directLink));
-				flattenedLinks.add(directLink);
-			} else {
-				processedLinks.add(link);
-				flattenedLinks.addAll(getFlattenedLinksForEntity(entityEntityMap,
-					entitiesLinkMap, startEntityUri,
-					newToEntities,
-					processedLinks));
-				processedLinks = new ArrayList<>();
-			}
+	private <T extends Object> Collection<T> addIfExists(Collection<T> collection, T val) {
+		if (null != val) {
+			if (val instanceof String) 
+				if (!String.valueOf(val).isEmpty()) collection.add(val);
+			else collection.add(val);
 		}
+		return collection;
+	}
+		
+	private EntityLink addAllMetadata(EntityLink link, List<EntityLink> processedLinks,
+		List<Entity> processedEntities) {
+	
+		Set<String> linkReason_all = new HashSet<>();
+		Set<Double> confidence_all = new HashSet<>();
+		Set<EntityRelation> entityRelations_all = new HashSet<>();
+		Set<String> provenance_all = new HashSet<>();
+		Set<String> tags_all = new HashSet<>();
+		List<String> linkView_all = new ArrayList<>();
+
+		for (EntityLink intermediateLink : processedLinks) {
+			addIfExists(linkReason_all, intermediateLink.getLinkReason());
+			addIfExists(confidence_all, intermediateLink.getConfidence());
+			addIfExists(provenance_all, intermediateLink.getProvenance());
+			for (EntityRelation rel : intermediateLink.getEntityRelations()) 
+				addIfExists(entityRelations_all, rel);
+			for (String tag : intermediateLink.getTags()) 
+				addIfExists(tags_all, tag);
+		}
+		for (Entity entity : processedEntities) {
+			if (EntityType.citedData.equals(entity.getEntityType())) {
+				// hack for infolis links
+				if (null == entity.getEntityView() || entity.getEntityView().isEmpty()) {
+					StringJoiner linkView = new StringJoiner(" ");
+					linkView.add(entity.getName());
+					for (String number : entity.getNumericInfo()) linkView.add(number);
+					entity.setEntityView(linkView.toString());
+					getOutputDataStoreClient().put(Entity.class, entity, entity.getUri());
+				}
+				linkView_all.add(entity.getEntityView());
+			}
+			for (String tag : entity.getTags()) 
+				addIfExists(tags_all, tag);
+		}
+
+		link.setLinkReason(linkReason_all
+				.stream()
+				.collect(Collectors.joining("@@@")));
+		link.setConfidence((confidence_all
+				.stream()
+				.mapToDouble(x->x)
+				.sum()) / processedLinks.size());
+		//if (!relation.equals(EntityRelation.same_as)) directLink.addEntityRelation(relation);
+		link.setEntityRelations(entityRelations_all);
+		link.setProvenance(provenance_all
+				.stream()
+				.collect(Collectors.joining(" + ")));
+		link.addAllTags(tags_all);
+		link.addAllTags(getExecution().getTags());
+		// if the data is allowed to contain more than one intermediate cited data entity, this behaviour might need to be changed
+		if (!linkView_all.isEmpty()) link.setLinkView(linkView_all.get(0));
+		return link;
+	}
+			
+
+	private List<EntityLink> getFlattenedLinksForEntity(
+			Multimap<String, String> entityEntityMap,
+			Multimap<String, String> entitiesLinkMap,
+			String startEntityUri, String currentEntityUri, 
+			List<EntityLink> processedLinks, List<Entity> processedEntities) {
+			List<EntityLink> flattenedLinks = new ArrayList<>();
+			Collection<String> connectedEntities = entityEntityMap.get(currentEntityUri);
+			// currentEntity is the last entity in the chain
+			if (null == connectedEntities || connectedEntities.isEmpty()) {
+				if (startEntityUri.equals(currentEntityUri)) ;
+				else {
+					//create direct link
+					EntityLink directLink = new EntityLink();
+					directLink.setFromEntity(startEntityUri);
+					directLink.setToEntity(currentEntityUri);
+					//combine information of all intermediate links and entities
+					directLink = addAllMetadata(directLink, processedLinks, processedEntities);
+
+					flattenedLinks.add(directLink);
+				}
+				
+			} else {
+				for (String connectedEntityUri : connectedEntities) {
+					// note: this may be more than one!
+					// if so, they need to be merged...
+					// get links connecting the two entities
+					Collection<String> connectingLinksUris = entitiesLinkMap.get(currentEntityUri + connectedEntityUri);
+
+					for (String currentLinkUri : connectingLinksUris) {
+						EntityLink currentLink = getInputDataStoreClient().get(EntityLink.class, currentLinkUri);
+						processedLinks.add(currentLink);
+					}
+					processedEntities.add(getInputDataStoreClient().get(Entity.class, currentEntityUri));
+
+					flattenedLinks.addAll(getFlattenedLinksForEntity(
+					entityEntityMap,
+					entitiesLinkMap,
+					startEntityUri, connectedEntityUri,
+					processedLinks, processedEntities));
+				}
+			}
 		return flattenedLinks;
 	}
-	
+					
+
 	protected List<EntityLink> flattenLinks(List<EntityLink> links) {
 		List<EntityLink> flattenedLinks = new ArrayList<>();
 		Multimap<String, String> entityEntityMap = ArrayListMultimap.create();
 		Multimap<String, String> entitiesLinkMap = ArrayListMultimap.create();
 		for (EntityLink link : links) {
-			Entity fromEntity = getInputDataStoreClient().get(Entity.class, link.getFromEntity().replaceAll("http://.*/entity", "http://svkolodtest.gesis.intra/link-db/api/entity"));
+			Entity fromEntity = getInputDataStoreClient().get(Entity.class, link.getFromEntity());
 				
 			if (fromEntity.getTags().contains("infolis-ontology")) continue;
 			entityEntityMap.put(fromEntity.getUri(), link.getToEntity());
@@ -411,14 +423,11 @@ public class LinkIndexer extends ElasticIndexer {
 		}
 		
 		for (String entityUri : entityEntityMap.keySet()) {
-			Entity fromEntity = getInputDataStoreClient().get(Entity.class, entityUri.replaceAll("http://.*/entity", "http://svkolodtest.gesis.intra/link-db/api/entity"));
-			Multimap<String, String> linkedEntities = ArrayListMultimap.create();
+			Entity fromEntity = getInputDataStoreClient().get(Entity.class, entityUri);
+			// need to find the start entities of a link chain, do not call on start entities of intermediate links!
+			// IMPORTANT: if new intermediate entity types are added, they need to be included here
 			if (fromEntity.getEntityType().equals(EntityType.citedData)) continue;
-			for (String toEntityUri : entityEntityMap.get(entityUri)) {
-				linkedEntities.putAll(toEntityUri, entitiesLinkMap.get(entityUri + toEntityUri));
-			}
-			
-			flattenedLinks.addAll(getFlattenedLinksForEntity(entityEntityMap, entitiesLinkMap, entityUri, linkedEntities, new ArrayList<>()));
+			flattenedLinks.addAll(getFlattenedLinksForEntity(entityEntityMap, entitiesLinkMap, entityUri, entityUri, new ArrayList<>(), new ArrayList<>()));
 		}
 		return flattenedLinks;
 	}
