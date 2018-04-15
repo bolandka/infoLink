@@ -153,7 +153,11 @@ public class LinkIndexer extends ElasticIndexer {
 		String toEntity = metadata.getString("toEntity");
 		String gws_fromID = metadata.getString("gws_fromID");
 		String gws_toID = metadata.getString("gws_toID");
-		String linkView = metadata.getString("linkView");
+		String linkView = null;
+		// value may be null -> null cannot be cast to string
+		try {
+			linkView = metadata.getString("linkView");
+		} catch (ClassCastException cce) {;}
 		String gws_link = null;
 		try {
 			gws_link = metadata.getString("gws_link");
@@ -363,7 +367,20 @@ public class LinkIndexer extends ElasticIndexer {
 		if (!linkView_all.isEmpty()) link.setLinkView(linkView_all.get(0));
 		return link;
 	}
-			
+	
+	// if other immediate entity types are added, add them here
+	private boolean finalEntitiesOnly(Collection<String> entities) {
+		for (Entity entity : getInputDataStoreClient().get(Entity.class, entities)) {
+			if (EntityType.citedData.equals(entity.getEntityType())) return false;
+			else return true;
+		}
+		return true;
+	}
+
+	private boolean finalEntitiesOnly(String entity) {
+		if (EntityType.citedData.equals(getInputDataStoreClient().get(Entity.class, entity).getEntityType())) return false;
+		else return true;
+	}
 
 	private List<EntityLink> getFlattenedLinksForEntity(
 			Multimap<String, String> entityEntityMap,
@@ -373,17 +390,19 @@ public class LinkIndexer extends ElasticIndexer {
 			List<EntityLink> flattenedLinks = new ArrayList<>();
 			Collection<String> connectedEntities = entityEntityMap.get(currentEntityUri);
 			// currentEntity is the last entity in the chain
-			if (null == connectedEntities || connectedEntities.isEmpty()) {
+			if (null == connectedEntities || connectedEntities.isEmpty() || (finalEntitiesOnly(connectedEntities))  && finalEntitiesOnly(currentEntityUri)) {
 				if (startEntityUri.equals(currentEntityUri)) ;
 				else {
 					//create direct link
 					EntityLink directLink = new EntityLink();
 					directLink.setFromEntity(startEntityUri);
 					directLink.setToEntity(currentEntityUri);
+					processedEntities.add(getInputDataStoreClient().get(Entity.class, currentEntityUri));
 					//combine information of all intermediate links and entities
 					directLink = addAllMetadata(directLink, processedLinks, processedEntities);
-
 					flattenedLinks.add(directLink);
+					processedLinks = new ArrayList<>();
+					processedEntities = new ArrayList<>();
 				}
 				
 			} else {
@@ -393,17 +412,23 @@ public class LinkIndexer extends ElasticIndexer {
 					// get links connecting the two entities
 					Collection<String> connectingLinksUris = entitiesLinkMap.get(currentEntityUri + connectedEntityUri);
 
+					List<EntityLink> newProcessedLinks = new ArrayList<>(processedLinks);
+					List<Entity> newProcessedEntities = new ArrayList<>(processedEntities);
+
 					for (String currentLinkUri : connectingLinksUris) {
 						EntityLink currentLink = getInputDataStoreClient().get(EntityLink.class, currentLinkUri);
-						processedLinks.add(currentLink);
+						newProcessedLinks.add(currentLink);
 					}
-					processedEntities.add(getInputDataStoreClient().get(Entity.class, currentEntityUri));
+					
+					newProcessedEntities.add(getInputDataStoreClient().get(Entity.class, currentEntityUri));
 
 					flattenedLinks.addAll(getFlattenedLinksForEntity(
 					entityEntityMap,
 					entitiesLinkMap,
 					startEntityUri, connectedEntityUri,
-					processedLinks, processedEntities));
+					newProcessedLinks, newProcessedEntities));
+					newProcessedLinks = new ArrayList<>();
+					newProcessedEntities = new ArrayList<>();
 				}
 			}
 		return flattenedLinks;
