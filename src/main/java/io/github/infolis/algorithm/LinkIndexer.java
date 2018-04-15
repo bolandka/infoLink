@@ -78,6 +78,8 @@ public class LinkIndexer extends ElasticIndexer {
 		try {
 			answer = post(httpclient, httppost, new StringEntity(query, ContentType.APPLICATION_JSON));
 		} catch (IOException e) { log.error(e.toString()); }
+		// error is thrown when searching the first links in the index which naturally does not exist yet
+		//} catch (IndexMissingException ime) {;}
 		if (null == answer) return null;
 
 		log.debug(answer);
@@ -99,7 +101,8 @@ public class LinkIndexer extends ElasticIndexer {
 		String answer = null;
 		try {
 			answer = post(httpclient, httppost, new StringEntity(query, ContentType.APPLICATION_JSON));
-		} catch (IOException e) { log.error(e.toString()); }
+		} catch (IOException e) { log.error(e.toString()); 
+		}
 		if (null == answer) return null;
 
 		log.trace(answer);
@@ -135,7 +138,7 @@ public class LinkIndexer extends ElasticIndexer {
 			"}" +
 			"}," +
 			"\"from\":0," +
-			"\"size\":10," + 
+			"\"size\":1," + 
 			"\"sort\":[]," + 
 			"\"facets\":{}" + 
 			"}"
@@ -308,7 +311,7 @@ public class LinkIndexer extends ElasticIndexer {
 	private <T extends Object> Collection<T> addIfExists(Collection<T> collection, T val) {
 		if (null != val) {
 			if (val instanceof String) 
-				if (!String.valueOf(val).isEmpty()) collection.add(val);
+				if (!(String.valueOf(val).isEmpty())) collection.add(val);
 			else collection.add(val);
 		}
 		return collection;
@@ -352,10 +355,10 @@ public class LinkIndexer extends ElasticIndexer {
 		link.setLinkReason(linkReason_all
 				.stream()
 				.collect(Collectors.joining("@@@")));
-		link.setConfidence((confidence_all
+		link.setConfidence(((confidence_all
 				.stream()
 				.mapToDouble(x->x)
-				.sum()) / processedLinks.size());
+				.sum())) / Double.valueOf(processedLinks.size()));
 		//if (!relation.equals(EntityRelation.same_as)) directLink.addEntityRelation(relation);
 		link.setEntityRelations(entityRelations_all);
 		link.setProvenance(provenance_all
@@ -462,11 +465,55 @@ public class LinkIndexer extends ElasticIndexer {
 	private ElasticLink mergeLinks(ElasticLink link1, ElasticLink link2) {
 		// use highest confidence value
 		if (link1.getConfidence() > link2.getConfidence()) link1.setConfidence(link2.getConfidence());
+
+		// below code causes the algorithm to also merge e.g. the link reasons of 
+		//  ALLBUS 2000 and of ALLBUS 2000-2010
+		// They might have the same link reason and point to the same dataset
+		// But the inserted marker **[]** would be at different positions and 
+		// the resulting snippets would look like weird duplicates...
+		// Thus: do not merge the field linkReasons, merge linkReason instead 
+		// and resolve...
 		// merge all linkReasons
 		Set<String> linkReasons = new HashSet<>();
+		Set<String> linkReasonsWithoutMarkup = link1.getGws_linkReasons()
+			.stream()
+			.collect(Collectors.toSet());
+		linkReasonsWithoutMarkup
+			.stream()
+			.forEach(x -> x.replace("**[","").replace("]**","").trim());
+		/*link2.getGws_linkReasons()
+			.stream()
+			.forEach(x -> x.replace("**[","").replace("]**","").trim())
+			.forEach(linkReasonsWithoutMarkup::add);*/
+
 		linkReasons.addAll(link1.getGws_linkReasons());
-		linkReasons.addAll(link2.getGws_linkReasons());
-		link1.setGws_linkReasons(new ArrayList<>(linkReasons));
+		//TODO use ontology and determine most specific link - use snippet of that
+		// instead of using the first known snippet
+		
+		for (String linkReason : link2.getGws_linkReasons()) {
+			String linkReasonWithoutMarkup = linkReason.replace("**[","").replace("]**", "").trim();
+			if (!linkReasonsWithoutMarkup.contains(linkReasonWithoutMarkup)) linkReasons.add(linkReason);
+		}
+		List<String> newLinkReasons = new ArrayList<>();
+		newLinkReasons.addAll(linkReasons);
+		link1.setGws_linkReasons(newLinkReasons);
+		
+		Set<String> linkReasons_all = Arrays.stream(link1.getLinkReason().split("@@@"))
+				.filter(x -> (x != null && !x.isEmpty()))
+				.collect(Collectors.toSet());
+		Arrays.stream(link2.getLinkReason().split("@@@"))
+			.filter(x -> (x != null && !x.isEmpty()))
+			.forEach(linkReasons_all::add);
+		link1.setLinkReason(linkReasons_all
+				.stream()
+				.collect(Collectors.joining("@@@")));
+		
+		Set<String> provenance_all = new HashSet<>();
+		addIfExists(provenance_all, link1.getProvenance());
+		addIfExists(provenance_all, link2.getProvenance());
+		link1.setProvenance(provenance_all
+				.stream()
+				.collect(Collectors.joining(" / ")));
 		// TODO what to do with entity relations and other fields?
 		return link1;
 	}
@@ -537,8 +584,8 @@ public class LinkIndexer extends ElasticIndexer {
 			//   containing entities as keys and in-/outgoing links as values
 			// in those links, replace ID of entity with new merged ID
 
-			link.setFromEntity(fromEntity.getUri());
-			link.setToEntity(toEntity.getUri());
+			/*link.setFromEntity(fromEntity.getUri());
+			link.setToEntity(toEntity.getUri());*/
 
 			//don't push link to index if its entities have too little metadata
 			if (!showInGws(fromEntity, toEntity)) continue;
@@ -547,32 +594,31 @@ public class LinkIndexer extends ElasticIndexer {
 			elink.setGws_toView(toEntity.getEntityView());
 			elink.setGws_fromType(fromEntity.getEntityType());
 			elink.setGws_toType(toEntity.getEntityType());
+			elink.setGws_fromID(fromEntity.getUri());
+			elink.setGws_toID(toEntity.getUri());
+			// set URI in a way that duplicates would be overriden
+			// but: do not overwrite links; instead:
+			//	search if links with such a uri already exist. 
+			//      if so: merge linkReasons and confidence scores, pssibly other fields as well?
+			String linkUri = elink.getGws_fromID() + "---" + elink.getGws_toID();
 			List<String> _linkReasons = Arrays.stream(elink.getLinkReason().split("@@@"))
 				.filter(x -> (x != null && !x.isEmpty()))
 				.collect(Collectors.toList());
 			elink.setAndResolveGws_linkReasons(_linkReasons);
-			// set URI in a way that duplicates are overriden
-			//TODO do not overwrite links; instead:search if links with such a uri already exist. if so: merge linkReasons and confidence scores, pssibly other fields as well?
-			String linkUri = elink.getGws_fromID() + "---" + elink.getGws_toID();
+
 			ElasticLink duplicate = getLinkFromIndex(getExecution().getIndexDirectory() + "_search", linkUri);
-			if (null != duplicate) elink = mergeLinks(elink, duplicate);
+			if (null != duplicate) elink = mergeLinks(duplicate, elink);
 
 			elink.setUri(linkUri);
 
 			if (toEntity.getEntityType().equals(EntityType.citedData)) elink.setGws_link(elink.getGwsLink(toEntity.getName().replaceAll("\\d", "").trim()));
-			if (null != elink.getUri()) {
-				HttpPut httpput = new HttpPut(index + "EntityLink/" + elink.getUri().replaceAll("http://.*/entityLink/", ""));
-				put(httpclient, httpput, new StringEntity(SerializationUtils.toJSON(elink), ContentType.APPLICATION_JSON));
-				log.debug(String.format("put link \"%s\" to %s", elink, index));
-			}
-			// flattened links are not pushed to any datastore and thus have no uri
-			else {
-				HttpPost httppost = new HttpPost(index + "EntityLink/");
-				post(httpclient, httppost, new StringEntity(SerializationUtils.toJSON(elink), ContentType.APPLICATION_JSON));
-				log.debug(String.format("posted link \"%s\" to %s", elink, index));
-			}
-				entities.add(fromEntity);
-				entities.add(toEntity);
+				
+			HttpPut httpput = new HttpPut(index + "EntityLink/" + elink.getUri().replaceAll("http://.*/entityLink/", ""));
+			put(httpclient, httpput, new StringEntity(SerializationUtils.toJSON(elink), ContentType.APPLICATION_JSON));
+			log.debug(String.format("put link \"%s\" to %s", elink, index));
+			
+			entities.add(fromEntity);
+			entities.add(toEntity);
 		}
 
 		for (Entity entity : entities) {

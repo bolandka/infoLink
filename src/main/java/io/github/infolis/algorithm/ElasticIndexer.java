@@ -129,8 +129,8 @@ public abstract class ElasticIndexer extends BaseAlgorithm {
 		public ElasticLink(EntityLink copyFrom) {
 			this.setFromEntity(copyFrom.getFromEntity());
 			this.setToEntity(copyFrom.getToEntity());
-			this.setGws_fromID(copyFrom.getFromEntity());
-			this.setGws_toID(copyFrom.getToEntity());
+			//this.setGws_fromID(copyFrom.getFromEntity());
+			//this.setGws_toID(copyFrom.getToEntity());
 			this.setConfidence(copyFrom.getConfidence());
 			String linkReason = copyFrom.getLinkReason();
 			/*if (null != linkReason && !linkReason.isEmpty()) {
