@@ -61,8 +61,9 @@ dependencies {
     compile 'org.apache.commons:commons-collections4:4.0'
 
     // Unit testing
-    testCompile 'junit:junit:4.6'
-    compile 'junit:junit:4.6'
+    testCompile 'junit:junit:4.12'
+    compile 'junit:junit:4.12'
+    testCompile group: 'org.hamcrest', name: 'hamcrest-library', version: '1.3'
 
 }
 
