@@ -16,6 +16,7 @@ import javax.json.Json;
 import javax.json.JsonArray;
 import javax.json.JsonObject;
 import javax.json.JsonNumber;
+
 import com.google.common.collect.Multimap;
 import com.google.common.collect.HashMultimap;
 
@@ -165,8 +166,17 @@ public class LinkIndexer extends ElasticIndexer {
 		try {
 			gws_link = metadata.getString("gws_link");
 		} catch (ClassCastException cce) {;}
-		JsonNumber _confidence = metadata.getJsonNumber("confidence");
-		double confidence = _confidence.doubleValue();
+		double confidence = Double.NaN;
+		try {
+			String _confidence = metadata.getString("confidence");
+			if (null != _confidence && !_confidence.isEmpty())
+			confidence = Double.parseDouble(_confidence);
+		} catch (ClassCastException cce) {
+			try {
+				JsonNumber __confidence = metadata.getJsonNumber("confidence");
+				confidence = __confidence.doubleValue();
+			} catch (ClassCastException e) {;}
+		}
 		JsonArray entityRelations = (JsonArray) metadata.get("entityRelations");
 		EntityType gws_fromType = EntityType.valueOf(metadata.getString("gws_fromType"));
 		EntityType gws_toType = EntityType.valueOf(metadata.getString("gws_toType"));
@@ -187,7 +197,7 @@ public class LinkIndexer extends ElasticIndexer {
 		link.setGws_fromView(gws_fromView);
 		link.setLinkView(linkView);
 		link.setGws_link(gws_link);
-		link.setConfidence(confidence);	
+		if (Double.NaN != confidence) link.setConfidence(confidence);	
 		link.setEntityRelations(toJavaEntityRelationSet(entityRelations));
 		return link;
 	}
@@ -309,7 +319,10 @@ public class LinkIndexer extends ElasticIndexer {
 	// end of importer's methods
 
 	private <T extends Object> Collection<T> addIfExists(Collection<T> collection, T val) {
-		if (null != val) {
+		if (val instanceof Double) {
+			if (Double.NaN != (Double)val) collection.add(val);
+		}
+		else if (null != val) {
 			if (val instanceof String) 
 				if (!(String.valueOf(val).isEmpty())) collection.add(val);
 			else collection.add(val);
@@ -355,10 +368,12 @@ public class LinkIndexer extends ElasticIndexer {
 		link.setLinkReason(linkReason_all
 				.stream()
 				.collect(Collectors.joining("@@@")));
-		link.setConfidence(((confidence_all
+		if (!confidence_all.isEmpty()) 
+			link.setConfidence(((confidence_all
 				.stream()
-				.mapToDouble(x->x)
-				.sum())) / Double.valueOf(processedLinks.size()));
+				//.mapToDouble(x->x)
+				//.sum())) / confidence_all.size());
+				.collect(Collectors.summingDouble(d->d))) / confidence_all.size()));
 		//if (!relation.equals(EntityRelation.same_as)) directLink.addEntityRelation(relation);
 		link.setEntityRelations(entityRelations_all);
 		link.setProvenance(provenance_all
@@ -464,7 +479,7 @@ public class LinkIndexer extends ElasticIndexer {
 	// TODO implement full link merging including ontology stuff
 	private ElasticLink mergeLinks(ElasticLink link1, ElasticLink link2) {
 		// use highest confidence value
-		if (link1.getConfidence() > link2.getConfidence()) link1.setConfidence(link2.getConfidence());
+		if (link1.getConfidence() < link2.getConfidence()) link1.setConfidence(link2.getConfidence());
 
 		// below code causes the algorithm to also merge e.g. the link reasons of 
 		//  ALLBUS 2000 and of ALLBUS 2000-2010
@@ -475,12 +490,11 @@ public class LinkIndexer extends ElasticIndexer {
 		// and resolve...
 		// merge all linkReasons
 		Set<String> linkReasons = new HashSet<>();
-		Set<String> linkReasonsWithoutMarkup = link1.getGws_linkReasons()
+		Set<String> linkReasonsWithoutMarkup = 
+			link1.getGws_linkReasons()
 			.stream()
+			.map(x -> x.replaceAll("\\*\\*\\[\\s*","").replaceAll("\\s*\\]\\*\\*","").replaceAll("\\s", ""))
 			.collect(Collectors.toSet());
-		linkReasonsWithoutMarkup
-			.stream()
-			.forEach(x -> x.replace("**[","").replace("]**","").trim());
 		/*link2.getGws_linkReasons()
 			.stream()
 			.forEach(x -> x.replace("**[","").replace("]**","").trim())
@@ -491,20 +505,23 @@ public class LinkIndexer extends ElasticIndexer {
 		// instead of using the first known snippet
 		
 		for (String linkReason : link2.getGws_linkReasons()) {
-			String linkReasonWithoutMarkup = linkReason.replace("**[","").replace("]**", "").trim();
+			String linkReasonWithoutMarkup = linkReason.replaceAll("\\*\\*\\[\\s*","").replaceAll("\\s*\\]\\*\\*","").replaceAll("\\s", "");
 			if (!linkReasonsWithoutMarkup.contains(linkReasonWithoutMarkup)) linkReasons.add(linkReason);
+			linkReasonsWithoutMarkup.add(linkReasonWithoutMarkup);
 		}
 		List<String> newLinkReasons = new ArrayList<>();
 		newLinkReasons.addAll(linkReasons);
 		link1.setGws_linkReasons(newLinkReasons);
 		
-		Set<String> linkReasons_all = Arrays.stream(link1.getLinkReason().split("@@@"))
-				.filter(x -> (x != null && !x.isEmpty()))
-				.collect(Collectors.toSet());
+		Set<String> linkReason_all = Arrays.stream(
+				link1.getLinkReason()
+				.split("@@@"))
+					.filter(x -> (x != null && !x.isEmpty()))
+					.collect(Collectors.toSet());
 		Arrays.stream(link2.getLinkReason().split("@@@"))
 			.filter(x -> (x != null && !x.isEmpty()))
-			.forEach(linkReasons_all::add);
-		link1.setLinkReason(linkReasons_all
+			.forEach(linkReason_all::add);
+		link1.setLinkReason(linkReason_all
 				.stream()
 				.collect(Collectors.joining("@@@")));
 		

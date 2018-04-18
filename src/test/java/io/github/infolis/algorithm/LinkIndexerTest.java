@@ -12,6 +12,7 @@ import org.junit.Before;
 import org.junit.Rule;
 import static org.junit.Assert.assertEquals;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.core.IsNot.not;
 import org.junit.rules.ErrorCollector;
 
 import io.github.infolis.InfolisBaseTest;
@@ -806,6 +807,10 @@ LinkIndexer indexer = new LinkIndexer(dataStoreClient, dataStoreClient, fileReso
 		collector.checkThat(foundAndCorrectConnections.size(), equalTo(expectedConnections.size()));
 		collector.checkThat(foundAndCorrectConnections, equalTo(expectedConnections));
 		collector.checkThat(foundConnections, equalTo(expectedConnections));
+		for (EntityLink link : flattenedLinks) {
+			collector.checkThat(0.0, not(equalTo(link.getConfidence())));
+			collector.checkThat(Double.NaN, not(equalTo(link.getConfidence())));
+		}
 	}
 
 	//TODO check transformation into ElasticLink
