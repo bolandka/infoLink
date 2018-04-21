@@ -36,6 +36,7 @@ import io.github.infolis.InfolisConfig;
 import io.github.infolis.datastore.DataStoreClient;
 import io.github.infolis.datastore.FileResolver;
 import io.github.infolis.model.EntityType;
+import io.github.infolis.model.TextualReference;
 import io.github.infolis.model.entity.Entity;
 import io.github.infolis.model.entity.EntityLink;
 import io.github.infolis.model.entity.EntityLink.EntityRelation;
@@ -344,8 +345,9 @@ public class LinkIndexer extends ElasticIndexer {
 			addIfExists(linkReason_all, intermediateLink.getLinkReason());
 			addIfExists(confidence_all, intermediateLink.getConfidence());
 			addIfExists(provenance_all, intermediateLink.getProvenance());
-			for (EntityRelation rel : intermediateLink.getEntityRelations()) 
-				addIfExists(entityRelations_all, rel);
+			/*for (EntityRelation rel : intermediateLink.getEntityRelations()) 
+				addIfExists(entityRelations_all, rel);*/
+			entityRelations_all.addAll(intermediateLink.getEntityRelations());
 			for (String tag : intermediateLink.getTags()) 
 				addIfExists(tags_all, tag);
 		}
@@ -617,11 +619,20 @@ public class LinkIndexer extends ElasticIndexer {
 			// but: do not overwrite links; instead:
 			//	search if links with such a uri already exist. 
 			//      if so: merge linkReasons and confidence scores, pssibly other fields as well?
-			String linkUri = elink.getGws_fromID() + "---" + elink.getGws_toID();
 			List<String> _linkReasons = Arrays.stream(elink.getLinkReason().split("@@@"))
 				.filter(x -> (x != null && !x.isEmpty()))
 				.collect(Collectors.toList());
 			elink.setAndResolveGws_linkReasons(_linkReasons);
+			// at this point, links are be disambiguated
+			// i.e. all linkReasons must have the same reference
+			String dataReference = "";
+			if (null != elink.getLinkView() 
+				&& ! elink.getLinkView().isEmpty()) 
+					dataReference = elink.getLinkView().replaceAll("\\s+","").toLowerCase();
+			//TODO THIS REPLACEMENT IS NOT CORRECT:
+			//ALLBUS 2000-2002 would be the same as
+			//ALLBUS 2000,2002...
+			String linkUri = elink.getGws_fromID() + "---" + elink.getGws_toID() + "---" + dataReference.replaceAll("\\W", "_");
 
 			ElasticLink duplicate = getLinkFromIndex(getExecution().getIndexDirectory() + "_search", linkUri);
 			if (null != duplicate) elink = mergeLinks(duplicate, elink);
