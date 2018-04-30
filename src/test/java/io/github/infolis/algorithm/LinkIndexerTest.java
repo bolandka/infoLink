@@ -11,6 +11,7 @@ import org.junit.Test;
 import org.junit.Before;
 import org.junit.Rule;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.core.IsNot.not;
 import org.junit.rules.ErrorCollector;
@@ -22,7 +23,8 @@ import io.github.infolis.model.TextualReference;
 import io.github.infolis.model.entity.Entity;
 import io.github.infolis.model.entity.EntityLink;
 import io.github.infolis.model.entity.EntityLink.EntityRelation;
-//import io.github.infolis.util.SerializationUtils;
+import io.github.infolis.util.SerializationUtils;
+import io.github.infolis.algorithm.ElasticIndexer.ElasticLink;
 
 public class LinkIndexerTest extends InfolisBaseTest {
 
@@ -38,28 +40,36 @@ public class LinkIndexerTest extends InfolisBaseTest {
 	public ErrorCollector collector = new ErrorCollector();
 
 	@Test
-	public void test_simple() {
+	public void test_flatten_links_simple() {
 		Execution exec = new Execution(LinkIndexer.class);
 		EntityLink link1 = new EntityLink();
 		EntityLink link2 = new EntityLink();
+		EntityLink link3 = new EntityLink();
 		Entity entity1 = new Entity();
 		Entity entity2 = new Entity();
 		Entity entity3 = new Entity();
+		Entity entity4 = new Entity();
 		entity1.setIdentifiers(Arrays.asList("pub1"));
 		entity2.setIdentifiers(Arrays.asList("cit1"));
 		entity3.setIdentifiers(Arrays.asList("dat1"));
+		entity4.setIdentifiers(Arrays.asList("dat2"));
 		entity1.setEntityType(EntityType.publication);
 		entity2.setEntityType(EntityType.citedData);
 		entity3.setEntityType(EntityType.dataset);
+		entity4.setEntityType(EntityType.dataset);
 		dataStoreClient.post(Entity.class, entity1);
 		dataStoreClient.post(Entity.class, entity2);
 		dataStoreClient.post(Entity.class, entity3);
+		dataStoreClient.post(Entity.class, entity4);
 		link1.setFromEntity(entity1.getUri());
 		link1.setToEntity(entity2.getUri());
 		link2.setFromEntity(entity2.getUri());
 		link2.setToEntity(entity3.getUri());
+		link3.setFromEntity(entity1.getUri());
+		link3.setToEntity(entity4.getUri());
 		link1.setConfidence(0.5);
 		link2.setConfidence(0.9);
+		link3.setConfidence(1);
 		link1.setEntityRelations(new HashSet<>(Arrays.asList(EntityRelation.references)));
 		link2.setEntityRelations(new HashSet<>(Arrays.asList(EntityRelation.part_of_spatial, EntityRelation.part_of_temporal)));
 		TextualReference ref = new TextualReference();
@@ -71,22 +81,36 @@ public class LinkIndexerTest extends InfolisBaseTest {
 		link1.setLinkReason(ref.getUri());
 		dataStoreClient.post(EntityLink.class, link1);
 		dataStoreClient.post(EntityLink.class, link2);
-		List<String> links = Arrays.asList(link1.getUri(), link2.getUri());
+		dataStoreClient.post(EntityLink.class, link3);
 		
 LinkIndexer indexer = new LinkIndexer(dataStoreClient, dataStoreClient, fileResolver, fileResolver);
 		indexer.setExecution(exec);
-		List<EntityLink> flattenedLinks = indexer.flattenLinks(Arrays.asList(link1,link2));
-		assertEquals(1, flattenedLinks.size());
+		List<EntityLink> flattenedLinks = indexer.flattenLinks(Arrays.asList(link3,link1,link2));
+		assertEquals(2, flattenedLinks.size());
 
-		Entity fromEntity = dataStoreClient.get(Entity.class, flattenedLinks.get(0).getFromEntity());
-		Entity toEntity = dataStoreClient.get(Entity.class, flattenedLinks.get(0).getToEntity());
+		boolean expectedLink1Found = false;
+		boolean expectedLink2Found = false;
 
-		assertEquals(EntityType.publication, fromEntity.getEntityType());
-		assertEquals(EntityType.dataset, toEntity.getEntityType());
-		assertEquals(ref.getUri(), flattenedLinks.get(0).getLinkReason());
-		assertEquals(entity1.getIdentifiers(), fromEntity.getIdentifiers());
-		assertEquals(entity3.getIdentifiers(), toEntity.getIdentifiers());
+		for (EntityLink link : flattenedLinks) {
+			Entity fromEntity = dataStoreClient.get(Entity.class, link.getFromEntity());
+			Entity toEntity = dataStoreClient.get(Entity.class, link.getToEntity());
+
+			assertEquals(EntityType.publication, fromEntity.getEntityType());
+			assertEquals(EntityType.dataset, toEntity.getEntityType());
+			assertEquals(entity1.getIdentifiers(), fromEntity.getIdentifiers());
+
+			if (entity3.getIdentifiers().equals(toEntity.getIdentifiers())) {
+				assertEquals(ref.getUri(), link.getLinkReason());
+				expectedLink1Found = true;
+			} else if (entity4.getIdentifiers().equals(toEntity.getIdentifiers())) {
+				expectedLink2Found = true;
+			} 
+			System.out.println(SerializationUtils.toJSON(link));
+		}
+		assertTrue(expectedLink1Found);
+		assertTrue(expectedLink2Found);
 		// TODO check confidence value
+		
 	}
 	
 	// TODO add test cases for data containing same-as links
@@ -774,7 +798,7 @@ LinkIndexer indexer = new LinkIndexer(dataStoreClient, dataStoreClient, fileReso
 	}
 
 	@Test
-	public void is_precise() {
+	public void flatten_links_is_precise() {
 		Set<String> superfluousConnections = new HashSet<>(foundConnections);
 		superfluousConnections.removeAll(expectedConnections);
 
@@ -782,21 +806,21 @@ LinkIndexer indexer = new LinkIndexer(dataStoreClient, dataStoreClient, fileReso
 	}
 
 	@Test
-	public void is_complete() {		
+	public void flatten_links_is_complete() {		
 		Set<String> missingConnections = new HashSet<>(expectedConnections);
 		missingConnections.removeAll(foundConnections);
 		collector.checkThat(missingConnections, equalTo(new HashSet<String>()));
 	}
 
 	@Test
-	public void is_duplicate_free() {
+	public void flatten_links_is_duplicate_free() {
 		// the other tests use sets -> duplicates are not taken into account there
 		collector.checkThat(flattenedLinks.size(), equalTo(35));
 	}
 
 	//TODO check that values are correct (linkReason and other fields)
 	@Test
-	public void is_exact() {
+	public void flatten_links_is_exact() {
 		// 5 links from publication to cited data
 		// 30 links form publication to dataset
 		//    (because the 6th cited data entity 
@@ -813,7 +837,31 @@ LinkIndexer indexer = new LinkIndexer(dataStoreClient, dataStoreClient, fileReso
 		}
 	}
 
-	//TODO check transformation into ElasticLink
+	//TODO check if all fields are set correctly
+	@Test
+	public void test_create_elastic_links() {
+		LinkIndexer indexer = new LinkIndexer(dataStoreClient, dataStoreClient, fileResolver, fileResolver);
+		Execution exec = new Execution();
+		indexer.setExecution(exec);
+		indexer.createElasticLinks(flattenedLinks);
+		collector.checkThat(indexer.elinks.size(), equalTo(flattenedLinks.size()));
+		Set<String> foundElasticLinkConnections = new HashSet<>();
+		for (int i = 0; i < indexer.elinks.size(); i++) {
+			foundElasticLinkConnections.add(dataStoreClient.get(
+				Entity.class, indexer.elinks.get(i)
+					.getFromEntity())
+					.getName()
+				+ " --> " 
+				+ dataStoreClient.get(
+				Entity.class, indexer.elinks.get(i)
+					.getToEntity())
+					.getDoi());
+		}
+		collector.checkThat(foundElasticLinkConnections, equalTo(expectedConnections));
+		for (ElasticLink elink : indexer.elinks) System.out.println(SerializationUtils.toJSON(elink));
+	}
+
+	//TODO check deduplication stuff (should be moved to its own class though...)
 	
 	//TODO move below tests to different class and package
 	//@Test
