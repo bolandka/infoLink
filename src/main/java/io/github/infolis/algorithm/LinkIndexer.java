@@ -347,6 +347,7 @@ public class LinkIndexer extends ElasticIndexer {
 			addIfExists(linkReason_all, intermediateLink.getLinkReason());
 			addIfExists(confidence_all, intermediateLink.getConfidence());
 			addIfExists(provenance_all, intermediateLink.getProvenance());
+			addIfExists(linkView_all, intermediateLink.getLinkView());
 			/*for (EntityRelation rel : intermediateLink.getEntityRelations()) 
 				addIfExists(entityRelations_all, rel);*/
 			entityRelations_all.addAll(intermediateLink.getEntityRelations());
@@ -394,7 +395,6 @@ public class LinkIndexer extends ElasticIndexer {
 	private boolean finalEntitiesOnly(Collection<String> entities) {
 		for (Entity entity : getInputDataStoreClient().get(Entity.class, entities)) {
 			if (EntityType.citedData.equals(entity.getEntityType())) return false;
-			else return true;
 		}
 		return true;
 	}
@@ -412,7 +412,7 @@ public class LinkIndexer extends ElasticIndexer {
 			List<EntityLink> flattenedLinks = new ArrayList<>();
 			Collection<String> connectedEntities = entityEntityMap.get(currentEntityUri);
 			// currentEntity is the last entity in the chain
-			if (null == connectedEntities || connectedEntities.isEmpty() || (finalEntitiesOnly(connectedEntities))  && finalEntitiesOnly(currentEntityUri)) {
+			if (null == connectedEntities || connectedEntities.isEmpty() || ((finalEntitiesOnly(connectedEntities))  && finalEntitiesOnly(currentEntityUri))) {
 				if (startEntityUri.equals(currentEntityUri)) ;
 				else {
 					//create direct link
@@ -449,8 +449,8 @@ public class LinkIndexer extends ElasticIndexer {
 					entitiesLinkMap,
 					startEntityUri, connectedEntityUri,
 					newProcessedLinks, newProcessedEntities));
-					newProcessedLinks = new ArrayList<>();
-					newProcessedEntities = new ArrayList<>();
+					//newProcessedLinks = new ArrayList<>();
+					//newProcessedEntities = new ArrayList<>();
 				}
 			}
 		return flattenedLinks;
