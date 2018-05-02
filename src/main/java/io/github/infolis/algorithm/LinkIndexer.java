@@ -587,10 +587,17 @@ public class LinkIndexer extends ElasticIndexer {
 			}
 			
 			if (null != fromEntity.getGwsId()) fromEntity.setUri(fromEntity.getGwsId());
-			else fromEntity.setUri(fromEntity.getUri().replaceAll("http.*/entity/","literaturpool-"));
+			else {
+				if (!EntityType.citedData.equals(fromEntity.getEntityType()))
+					fromEntity.setUri("literaturpool-" + SerializationUtils.getHexMd5(fromEntity.getEntityView()));
+				else fromEntity.setUri(fromEntity.getUri().replaceAll("http://.*/entity/", "referencepool-"));
+			}
 			if (null != toEntity.getGwsId()) toEntity.setUri(toEntity.getGwsId());
-			else toEntity.setUri(toEntity.getUri().replaceAll("http.*/entity/","literaturpool-"));
-
+			else {
+				if (!EntityType.citedData.equals(toEntity.getEntityType()))
+					toEntity.setUri("literaturpool-" + SerializationUtils.getHexMd5(toEntity.getEntityView()));
+				else toEntity.setUri(toEntity.getUri().replaceAll("http://.*/entity/", "referencepool-"));
+			}
 			// TODO dedup entities:
 			// check if similar entity is in temp data store (or other data store?)
 			// if so, merge entities and merge links
