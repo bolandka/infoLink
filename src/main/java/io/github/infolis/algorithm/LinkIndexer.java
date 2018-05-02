@@ -47,7 +47,13 @@ public class LinkIndexer extends ElasticIndexer {
 	private static final Logger log = LoggerFactory.getLogger(LinkIndexer.class);
 	protected List<ElasticLink> elinks = new ArrayList<>();
 	protected Set<Entity> entities = new HashSet<>();	
-
+	private String apiEntityPrefixRegex = "http://.*/entity/";
+	private String apiEntityLinkPrefixRegex = "http://.*/entityLink/";
+	private String apiTextualReferencePrefixRegex = "http://.*/textualReference/";
+	private String apiEntityPrefixReplacement = InfolisConfig.getFrontendURI() + "/entity/";
+	private String apiEntityLinkPrefixReplacement = InfolisConfig.getFrontendURI() + "/entityLink/";
+	private String apiTextualReferencePrefixReplacement = InfolisConfig.getFrontendURI() + "/textualReference/";
+	
 	public LinkIndexer(DataStoreClient inputDataStoreClient, DataStoreClient outputDataStoreClient,
 			FileResolver inputFileResolver, FileResolver outputFileResolver) {
 		super(inputDataStoreClient, outputDataStoreClient, inputFileResolver, outputFileResolver);
@@ -462,15 +468,15 @@ public class LinkIndexer extends ElasticIndexer {
 		Multimap<String, String> entityEntityMap = ArrayListMultimap.create();
 		Multimap<String, String> entitiesLinkMap = ArrayListMultimap.create();
 		for (EntityLink link : links) {
-			Entity fromEntity = getInputDataStoreClient().get(Entity.class, link.getFromEntity());
+			Entity fromEntity = getInputDataStoreClient().get(Entity.class, link.getFromEntity().replaceAll(apiEntityPrefixRegex, apiEntityPrefixReplacement));
 				
 			if (fromEntity.getTags().contains("infolis-ontology")) continue;
-			entityEntityMap.put(fromEntity.getUri(), link.getToEntity());
-			entitiesLinkMap.put(fromEntity.getUri()+link.getToEntity(), link.getUri());
+			entityEntityMap.put(fromEntity.getUri(), link.getToEntity().replaceAll(apiEntityPrefixRegex, apiEntityPrefixReplacement));
+			entitiesLinkMap.put(fromEntity.getUri()+link.getToEntity().replaceAll(apiEntityPrefixRegex, apiEntityPrefixReplacement), link.getUri().replaceAll(apiEntityLinkPrefixRegex, apiEntityLinkPrefixReplacement));
 		}
 		
 		for (String entityUri : entityEntityMap.keySet()) {
-			Entity fromEntity = getInputDataStoreClient().get(Entity.class, entityUri);
+			Entity fromEntity = getInputDataStoreClient().get(Entity.class, entityUri.replaceAll(apiEntityPrefixRegex, apiEntityPrefixReplacement));
 			// need to find the start entities of a link chain, do not call on start entities of intermediate links!
 			// IMPORTANT: if new intermediate entity types are added, they need to be included here
 			if (fromEntity.getEntityType().equals(EntityType.citedData)) continue;
@@ -540,10 +546,9 @@ public class LinkIndexer extends ElasticIndexer {
 	}
 	
 	protected void createElasticLinks(List<EntityLink> flattenedLinks) {
-		String prefixRegex = "http://.*/entity/";
 		for (EntityLink link : flattenedLinks) {
-			Entity fromEntity = getInputDataStoreClient().get(Entity.class, link.getFromEntity().replaceAll(prefixRegex, "http://svkolodtest.gesis.intra/link-db/api/entity/"));
-			Entity toEntity = getInputDataStoreClient().get(Entity.class, link.getToEntity().replaceAll(prefixRegex, "http://svkolodtest.gesis.intra/link-db/api/entity/"));
+			Entity fromEntity = getInputDataStoreClient().get(Entity.class, link.getFromEntity().replaceAll(apiEntityPrefixRegex, apiEntityPrefixReplacement));
+			Entity toEntity = getInputDataStoreClient().get(Entity.class, link.getToEntity().replaceAll(apiEntityPrefixRegex, apiEntityPrefixReplacement));
 			// link to za numbers / elastic search entities
 			log.debug(toEntity.getName());
 			log.debug(toEntity.getEntityView());
@@ -623,6 +628,7 @@ public class LinkIndexer extends ElasticIndexer {
 			//      if so: merge linkReasons and confidence scores, pssibly other fields as well?
 			List<String> _linkReasons = Arrays.stream(elink.getLinkReason().split("@@@"))
 				.filter(x -> (x != null && !x.isEmpty()))
+				.map(x -> x.replaceAll(apiTextualReferencePrefixRegex, apiTextualReferencePrefixReplacement))
 				.collect(Collectors.toList());
 			elink.setAndResolveGws_linkReasons(_linkReasons);
 			// at this point, links are be disambiguated
