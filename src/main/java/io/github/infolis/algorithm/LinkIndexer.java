@@ -45,6 +45,8 @@ import io.github.infolis.util.SerializationUtils;
 public class LinkIndexer extends ElasticIndexer {
 
 	private static final Logger log = LoggerFactory.getLogger(LinkIndexer.class);
+	protected List<ElasticLink> elinks = new ArrayList<>();
+	protected Set<Entity> entities = new HashSet<>();	
 
 	public LinkIndexer(DataStoreClient inputDataStoreClient, DataStoreClient outputDataStoreClient,
 			FileResolver inputFileResolver, FileResolver outputFileResolver) {
@@ -537,15 +539,8 @@ public class LinkIndexer extends ElasticIndexer {
 		return link1;
 	}
 	
-	void pushToIndex(String index, List<EntityLink> flattenedLinks) throws ClientProtocolException, IOException {
-		Set<Entity> entities = new HashSet<>();	
+	protected void createElasticLinks(List<EntityLink> flattenedLinks) {
 		String prefixRegex = "http://.*/entity/";
-		if (null == index || index.isEmpty()) {
-			index = InfolisConfig.getElasticSearchIndex();
-		}
-		getExecution().setIndexDirectory(index);
-		HttpClient httpclient = HttpClients.createDefault();
-		
 		for (EntityLink link : flattenedLinks) {
 			Entity fromEntity = getInputDataStoreClient().get(Entity.class, link.getFromEntity().replaceAll(prefixRegex, "http://svkolodtest.gesis.intra/link-db/api/entity/"));
 			Entity toEntity = getInputDataStoreClient().get(Entity.class, link.getToEntity().replaceAll(prefixRegex, "http://svkolodtest.gesis.intra/link-db/api/entity/"));
@@ -640,13 +635,26 @@ public class LinkIndexer extends ElasticIndexer {
 			elink.setUri(linkUri);
 
 			if (toEntity.getEntityType().equals(EntityType.citedData)) elink.setGws_link(elink.getGwsLink(toEntity.getName().replaceAll("\\d", "").trim()));
-				
+			
+			elinks.add(elink);
+			entities.add(fromEntity);
+			entities.add(toEntity);
+		}
+	}
+
+	void pushToIndex(String index, List<EntityLink> links) throws ClientProtocolException, IOException {
+		if (null == index || index.isEmpty()) {
+			index = InfolisConfig.getElasticSearchIndex();
+		}
+		getExecution().setIndexDirectory(index);
+		HttpClient httpclient = HttpClients.createDefault();
+		
+		createElasticLinks(links);
+		for (ElasticLink elink : elinks) {
 			HttpPut httpput = new HttpPut(index + "EntityLink/" + elink.getUri().replaceAll("http://.*/entityLink/", ""));
 			put(httpclient, httpput, new StringEntity(SerializationUtils.toJSON(elink), ContentType.APPLICATION_JSON));
 			log.debug(String.format("put link \"%s\" to %s", elink, index));
 			
-			entities.add(fromEntity);
-			entities.add(toEntity);
 		}
 
 		for (Entity entity : entities) {
