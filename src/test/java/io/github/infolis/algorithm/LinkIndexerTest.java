@@ -839,11 +839,11 @@ LinkIndexer indexer = new LinkIndexer(dataStoreClient, dataStoreClient, fileReso
 
 	//TODO check if all fields are set correctly
 	@Test
-	public void test_create_elastic_links() {
+	public void test_create_elastic_links() throws Exception {
 		LinkIndexer indexer = new LinkIndexer(dataStoreClient, dataStoreClient, fileResolver, fileResolver);
 		Execution exec = new Execution();
 		indexer.setExecution(exec);
-		indexer.createElasticLinks(flattenedLinks);
+		indexer.createElasticLinks(flattenedLinks, null);
 		collector.checkThat(indexer.elinks.size(), equalTo(flattenedLinks.size()));
 		Set<String> foundElasticLinkConnections = new HashSet<>();
 		for (int i = 0; i < indexer.elinks.size(); i++) {

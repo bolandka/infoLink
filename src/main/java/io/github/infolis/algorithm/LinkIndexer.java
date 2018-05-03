@@ -419,7 +419,25 @@ public class LinkIndexer extends ElasticIndexer {
 			Collection<String> connectedEntities = entityEntityMap.get(currentEntityUri);
 			// currentEntity is the last entity in the chain
 			if (null == connectedEntities || connectedEntities.isEmpty() || ((finalEntitiesOnly(connectedEntities))  && finalEntitiesOnly(currentEntityUri))) {
-				if (startEntityUri.equals(currentEntityUri)) ;
+				// process direct links that need no flattening...
+				if (startEntityUri.equals(currentEntityUri) && null != connectedEntities && !connectedEntities.isEmpty())  {
+					processedEntities.add(getInputDataStoreClient().get(Entity.class, currentEntityUri));
+					for (String connectedEntityUri : connectedEntities) {
+						for (String outgoingLinkUri : entitiesLinkMap.get(
+							startEntityUri + connectedEntityUri)) {
+							EntityLink outgoingLink = getInputDataStoreClient().get(
+								EntityLink.class, outgoingLinkUri);
+								processedLinks.add(outgoingLink);
+						}
+						flattenedLinks.addAll(getFlattenedLinksForEntity(
+							entityEntityMap,
+							entitiesLinkMap,
+							startEntityUri,
+							connectedEntityUri,
+							processedLinks,
+							processedEntities));
+					}	
+				}
 				else {
 					//create direct link
 					EntityLink directLink = new EntityLink();
@@ -545,7 +563,9 @@ public class LinkIndexer extends ElasticIndexer {
 		return link1;
 	}
 	
-	protected void createElasticLinks(List<EntityLink> flattenedLinks) {
+	protected void createElasticLinks(List<EntityLink> flattenedLinks, String index) throws ClientProtocolException, IOException {
+		HttpClient httpclient = HttpClients.createDefault();
+
 		for (EntityLink link : flattenedLinks) {
 			Entity fromEntity = getInputDataStoreClient().get(Entity.class, link.getFromEntity().replaceAll(apiEntityPrefixRegex, apiEntityPrefixReplacement));
 			Entity toEntity = getInputDataStoreClient().get(Entity.class, link.getToEntity().replaceAll(apiEntityPrefixRegex, apiEntityPrefixReplacement));
@@ -649,6 +669,11 @@ public class LinkIndexer extends ElasticIndexer {
 
 			if (toEntity.getEntityType().equals(EntityType.citedData)) elink.setGws_link(elink.getGwsLink(toEntity.getName().replaceAll("\\d", "").trim()));
 			
+			if (null != index) {
+				HttpPut httpput = new HttpPut(index + "EntityLink/" + elink.getUri().replaceAll("http://.*/entityLink/", ""));
+				put(httpclient, httpput, new StringEntity(SerializationUtils.toJSON(elink), ContentType.APPLICATION_JSON));
+				log.debug(String.format("put link \"%s\" to %s", elink, index));
+			}
 			elinks.add(elink);
 			entities.add(fromEntity);
 			entities.add(toEntity);
@@ -662,14 +687,7 @@ public class LinkIndexer extends ElasticIndexer {
 		getExecution().setIndexDirectory(index);
 		HttpClient httpclient = HttpClients.createDefault();
 		
-		createElasticLinks(links);
-		for (ElasticLink elink : elinks) {
-			HttpPut httpput = new HttpPut(index + "EntityLink/" + elink.getUri().replaceAll("http://.*/entityLink/", ""));
-			put(httpclient, httpput, new StringEntity(SerializationUtils.toJSON(elink), ContentType.APPLICATION_JSON));
-			log.debug(String.format("put link \"%s\" to %s", elink, index));
-			
-		}
-
+		createElasticLinks(links, index);
 		for (Entity entity : entities) {
 			HttpPut httpput = new HttpPut(index + "Entity/" + entity.getUri());
 			put(httpclient, httpput, new StringEntity(SerializationUtils.toJSON(entity), ContentType.APPLICATION_JSON));
