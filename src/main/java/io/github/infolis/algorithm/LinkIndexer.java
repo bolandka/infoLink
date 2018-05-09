@@ -71,8 +71,12 @@ public class LinkIndexer extends ElasticIndexer {
 	}
 		
 	private Entity getDataSearchEntity(String doi) {
-		String doiPrefix = "http://dx.doi.org/";
-		doi = doi.replace(doiPrefix, "");
+		String doiPrefixOld = "http://dx.doi.org/";
+		String doiPrefixNew = "https://www.doi.org/";
+		String doiPrefixNew2 = "https://doi.org/";
+		doi = doi.replace(doiPrefixOld, "");
+		doi = doi.replace(doiPrefixNew, "");
+		doi = doi.replace(doiPrefixNew2, "");
 		//search in local database: datasearch doi found? if so return, if not:
 			//connect to datasearch es index
 			//search doi, create entity with all needed metadata, push to datastore and return
