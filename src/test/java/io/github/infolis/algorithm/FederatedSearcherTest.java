@@ -42,8 +42,14 @@ public class FederatedSearcherTest extends InfolisBaseTest {
         List<SearchResult> searchResults = dataStoreClient.get(SearchResult.class, execution.getSearchResults());
         // since the query service is given twice, FederatedSearcher should find the same result twice
         assertEquals(2, searchResults.size());
-        assertEquals("10.4232/1.5126", searchResults.get(0).getIdentifier());
-        assertEquals("10.4232/1.5126", searchResults.get(1).getIdentifier());
+        
+        //Update from 10.4232/1.5126 to 10.4232/1.12967
+        //assertEquals("10.4232/1.5126", searchResults.get(0).getIdentifier());
+        //assertEquals("10.4232/1.5126", searchResults.get(1).getIdentifier());
+        
+        assertEquals("10.4232/1.12967", searchResults.get(0).getIdentifier());
+        assertEquals("10.4232/1.12967", searchResults.get(1).getIdentifier());
+
     }
 
 }
