@@ -27,7 +27,8 @@ import io.github.infolis.infolink.querying.QueryService;
 public class SearchDoisAndCreateLinksTest extends InfolisBaseTest {
 	
 	private final String[] testString = {
-			"Version 1.0.0, 21.03.2013 erste Archiv-Version doi:10.4232/1.11692. Änderungen in dieser Version. 2013-11-21, Fehler in Antwortskala für V749 OVERALL ..."
+			//"Version 1.0.0, 21.03.2013 erste Archiv-Version doi:10.4232/1.11692. Änderungen in dieser Version. 2013-11-21, Fehler in Antwortskala für V749 OVERALL ..."
+			"Version 1.0.1 (aktuelle Version)	21.11.2013 Antwortskala für V749 OVERALL LIFE SATISFACTION korrigiert doi:10.4232/1.11782"
 			};
 	private List<String> uris = new ArrayList<>();
 	
@@ -65,7 +66,9 @@ public class SearchDoisAndCreateLinksTest extends InfolisBaseTest {
         el = createdLinks.get(1);
         Entity targetEntity = dataStoreClient.get(Entity.class, el.getToEntity());
         assertEquals("German General Social Survey - ALLBUS 2010", targetEntity.getName());
-        assertEquals("10.4232/1.11692", (targetEntity.getIdentifiers().get(0)));
+        //assertEquals("10.4232/1.11692", (targetEntity.getIdentifiers().get(0)));
+        assertEquals("10.4232/1.11782", (targetEntity.getIdentifiers().get(0)));
+        
     }
 
     public List<String> postQueryServices() throws IOException {

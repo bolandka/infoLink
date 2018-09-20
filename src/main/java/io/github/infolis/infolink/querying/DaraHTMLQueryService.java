@@ -126,6 +126,7 @@ public class DaraHTMLQueryService extends QueryService {
             }
             String htmlPage = new String(resultBuff);
             log.debug("parsing html page content...");
+            //System.out.println(htmlPage.toString());
             return parseHTML(htmlPage);
 
         } catch (MalformedURLException ex) {
@@ -152,13 +153,16 @@ public class DaraHTMLQueryService extends QueryService {
             String title = "";
             String identifier = "";
             //TODO: search for tag "a" first to limit elements to search by attribute value?
-            Elements names = hit.getElementsByAttributeValueMatching("href", "/dara/search/search_show?.*");
+            Elements names = hit.getElementsByAttributeValueMatching("href", "/dara/search/search_show?.*"); 
             Elements dois = hit.getElementsByAttributeValueContaining("href", "https://doi.org");
             // each entry has exactly one name and one doi element
             //TODO: except for some datasets that are not registered but only referenced in dara!
             // e.g. "OECD Employment Outlook" -> no doi listed here -> ignored
             for (Element name : names) {
-                title = name.text().trim();
+            	//title = name.text().trim(); // PROBLEM!!
+            	if (!name.childNodes().get(0).toString().trim().equals("") && !name.childNodes().get(0).toString().trim().equals("English") && !name.childNodes().get(0).toString().trim().equals("German")){
+            		title = name.childNodes().get(0).toString().trim();
+            	}
             }
             for (Element doi : dois) {
                 identifier = doi.text().trim();
@@ -167,6 +171,7 @@ public class DaraHTMLQueryService extends QueryService {
                 continue;
             }
             //create the search result
+            //System.out.print("Creating search result: title: " + title + "; identifier: " + identifier + "\r");
             log.debug("Creating search result: title: " + title + "; identifier: " + identifier);
             List<String> numericInfo = InformationExtractor.getNumericInfo(title);
             SearchResult sr = new SearchResult();
