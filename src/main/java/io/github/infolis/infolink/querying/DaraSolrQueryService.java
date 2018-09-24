@@ -71,7 +71,7 @@ public class DaraSolrQueryService extends QueryService {
     	String doi = "";
     	if (this.getQueryStrategy().contains(QueryService.QueryField.title)) {
     		try {
-				title = URLEncoder.encode("\"" + ClientUtils.escapeQueryChars(entity.getName()) + "\"", this.encoding);
+				title = "\"" + URLEncoder.encode(ClientUtils.escapeQueryChars(entity.getName()) ,this.encoding) + "\"" ;
 			} catch (UnsupportedEncodingException e) {
 				e.printStackTrace();
 				throw new IllegalArgumentException("Cannot encode \"" + title + "\"");
@@ -88,14 +88,14 @@ public class DaraSolrQueryService extends QueryService {
     		if (!title.isEmpty()) log.debug("Warning: both title and numericInfoInTitle strategies set. Using numericInfoInTitle"); 
             if(entity.getNumericInfo()!= null && entity.getNumericInfo().size()>0) {
             	try {
-					title = URLEncoder.encode("\"" + ClientUtils.escapeQueryChars(entity.getName()) + " " + ClientUtils.escapeQueryChars(entity.getNumericInfo().get(0)) + "\"", this.encoding);
+					title = "\"" + URLEncoder.encode(ClientUtils.escapeQueryChars(entity.getName()) + " " + ClientUtils.escapeQueryChars(entity.getNumericInfo().get(0)), this.encoding) + "\"";
 				} catch (UnsupportedEncodingException e) {
 					e.printStackTrace();
 					throw new IllegalArgumentException("Cannot encode \"" + title + "\"");
 				}
             } else
 				try {
-					title = URLEncoder.encode("\"" + ClientUtils.escapeQueryChars(entity.getName()) + "\"", this.encoding);
+					title = "\"" + URLEncoder.encode(ClientUtils.escapeQueryChars(entity.getName()), this.encoding) + "\"";
 				} catch (UnsupportedEncodingException e) {
 					e.printStackTrace();
 					throw new IllegalArgumentException("Cannot encode \"" + title + "\"");
