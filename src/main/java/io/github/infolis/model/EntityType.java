@@ -12,5 +12,7 @@ public enum EntityType {
     citedData,
     project,
     institution,
-    instrument
+    instrument,
+    researcher,
+    researcherInstitution
 }

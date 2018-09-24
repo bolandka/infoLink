@@ -85,6 +85,33 @@ public class Entity extends BaseModel {
     private String month = null;
     private String year = null;
     
+
+    
+    //smart harvest attributes
+    private String researcherDegree = null; 
+    private String researcherGndID = null;
+    private String researcherID = null;
+    private String researcherScopusID = null;
+    private String researcherInstitutionalPage = null;
+    private String researcherWorldCatID = null;
+    private String researcherWikipediaPage = null;
+    private String researcherVaifID = null;
+    private String researcherScholarProfile = null;
+    private String researcherGateProfile = null;
+    private String researcherOrcID = null;
+    private String researcherLccn = null;
+    
+    
+    //smart harvest institutional details
+    private String positionInstitution = null;
+    private String positionFunction = null;
+    private String positionSource = null;
+    private String positionActivity = null;
+    private String positionDate = null;
+    private String positionSofisProjectID = null;
+    private String positionInstitutionName = null;
+    private String positionSofisName = null;
+    
     public Entity(String name) {
         this.name = name;
     }
@@ -136,6 +163,29 @@ public class Entity extends BaseModel {
        	this.publicationStatus = copyFrom.getPublicationStatus();
         this.month = copyFrom.getMonth();
         this.year = copyFrom.getYear();
+        
+        //copy  for type researcher
+        this.researcherDegree = copyFrom.getResearcherDegree();
+        this.researcherGndID = copyFrom.getResearcherGndID();
+        this.researcherID = copyFrom.getResearcherID();
+        this.researcherScopusID = copyFrom.getResearcherScopusID();
+        this.researcherInstitutionalPage = copyFrom.getResearcherInstitutionalPage();
+        this.researcherWorldCatID = copyFrom.getResearcherWorldCatID();
+        this.researcherWikipediaPage = copyFrom.getResearcherWikipediaPage();
+        this.researcherVaifID = copyFrom.getResearcherVaifID();
+        this.researcherScholarProfile = copyFrom.getResearcherScholarProfile();
+        this.researcherGateProfile = copyFrom.getResearcherGateProfile();
+        this.researcherOrcID = copyFrom.getResearcherOrcID();
+        this.researcherLccn = copyFrom.getResearcherLccn();
+        
+        this.positionInstitution = copyFrom.getPositionInstitution();
+        this.positionFunction = copyFrom.getPositionFunction();
+        this.positionSource = copyFrom.getPositionSource();
+        this.positionActivity = copyFrom.getPositionActivity();
+        this.positionDate = copyFrom.getPositionDate();
+        this.positionSofisProjectID = copyFrom.getPositionSofisProjectID();
+        this.positionInstitutionName = copyFrom.getPositionInstitutionName();
+        this.positionSofisName = this.getPositionSofisName();
     }
 
     public Entity() {
@@ -565,5 +615,164 @@ public class Entity extends BaseModel {
     public String getGwsId() {
 	return this.gwsId;
     }
+    
+    public void setResearcherDegree(String researcherDegree){
+    	this.researcherDegree = researcherDegree;
+    }
+    
+    public String getResearcherDegree(){
+    	return this.researcherDegree;
+    }
 
+	public String getResearcherGndID() {
+		return researcherGndID;
+	}
+
+	public void setResearcherGndID(String researcherGndID) {
+		this.researcherGndID = researcherGndID;
+	}
+
+    public String getResearcherID() {
+		return researcherID;
+	}
+
+	public void setResearcherID(String researcherID) {
+		this.researcherID = researcherID;
+	}
+
+	public String getResearcherScopusID() {
+		return researcherScopusID;
+	}
+
+	public void setResearcherScopusID(String researcherScopusID) {
+		this.researcherScopusID = researcherScopusID;
+	}
+
+	public String getResearcherInstitutionalPage() {
+		return researcherInstitutionalPage;
+	}
+
+	public void setResearcherInstitutionalPage(String researcherInstitutionalPage) {
+		this.researcherInstitutionalPage = researcherInstitutionalPage;
+	}
+
+	public String getResearcherWorldCatID() {
+		return researcherWorldCatID;
+	}
+
+	public void setResearcherWorldCatID(String researcherWorldCatID) {
+		this.researcherWorldCatID = researcherWorldCatID;
+	}
+
+	public String getResearcherWikipediaPage() {
+		return researcherWikipediaPage;
+	}
+
+	public void setResearcherWikipediaPage(String researcherWikipediaPage) {
+		this.researcherWikipediaPage = researcherWikipediaPage;
+	}
+
+	public String getResearcherVaifID() {
+		return researcherVaifID;
+	}
+
+	public void setResearcherVaifID(String researcherVaifID) {
+		this.researcherVaifID = researcherVaifID;
+	}
+
+	public String getResearcherScholarProfile() {
+		return researcherScholarProfile;
+	}
+
+	public void setResearcherScholarProfile(String researcherScholarProfile) {
+		this.researcherScholarProfile = researcherScholarProfile;
+	}
+
+	public String getResearcherGateProfile() {
+		return researcherGateProfile;
+	}
+
+	public void setResearcherGateProfile(String researcherGateProfile) {
+		this.researcherGateProfile = researcherGateProfile;
+	}
+
+	public String getResearcherOrcID() {
+		return researcherOrcID;
+	}
+
+	public void setResearcherOrcID(String researcherOrcID) {
+		this.researcherOrcID = researcherOrcID;
+	}
+
+	public String getResearcherLccn() {
+		return researcherLccn;
+	}
+
+	public void setResearcherLccn(String researcherLccn) {
+		this.researcherLccn = researcherLccn;
+	}
+
+	public String getPositionInstitution() {
+		return this.positionInstitution;
+	}
+
+	public void setPositionInstitution(String positionInstitution) {
+		this.positionInstitution = positionInstitution;
+	}
+	
+	public String getPositionFunction() {
+		return this.positionFunction;
+	}
+
+	public void setPositionFunction(String positionFunction) {
+		this.positionFunction = positionFunction;
+	}
+	
+	public String getPositionSource() {
+		return this.positionSource;
+	}
+
+	public void setPositionSource(String positionSource) {
+		this.positionSource = positionSource;
+	}
+    
+	public String getPositionActivity() {
+		return this.positionActivity;
+	}
+
+	public void setPositionActivity(String positionActivity) {
+		this.positionActivity = positionActivity;
+	}
+
+	public String getPositionDate() {
+		return this.positionDate;
+	}
+
+	public void setPositionDate(String positionDate) {
+		this.positionDate = positionDate;
+	}
+	
+	public String getPositionSofisProjectID() {
+		return this.positionSofisProjectID;
+	}
+
+	public void setPositionSofisProjectID(String positionSofisProjectID) {
+		this.positionSofisProjectID = positionSofisProjectID;
+	}
+	
+	public String getPositionInstitutionName() {
+		return this.positionInstitutionName;
+	}
+
+	public void setPositionInstitutionName(String positionInstitutionName) {
+		this.positionInstitutionName = positionInstitutionName;
+	}
+	
+	public String getPositionSofisName() {
+		return this.positionSofisName;
+	}
+
+	public void setPositionSofisName(String positionSofisName) {
+		this.positionSofisName = positionSofisName;
+	}
 }
